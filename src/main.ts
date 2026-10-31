@@ -980,8 +980,8 @@ function openSettings() {
           assocDesc.textContent = "当前已是默认程序";
           toast("已设为默认打开方式");
         } else {
-          assocDesc.textContent = "请在系统设置里选择 Markprose";
-          toast("已打开系统设置，手动选一下 Markprose", "info", 4000);
+          assocDesc.textContent = "请在打开的设置页里点「设置默认值」";
+          toast("已打开设置页，点一下「设置默认值」", "info", 4000);
         }
       } catch (e: any) {
         toast("设置失败：" + (e?.message || e), "err");

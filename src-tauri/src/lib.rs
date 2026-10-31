@@ -435,6 +435,23 @@ fn register_file_assoc() -> Result<(), String> {
         }
         let (icon, _) = app.create_subkey("DefaultIcon").map_err(err)?;
         icon.set_value("", &format!("{},0", exe.display())).map_err(err)?;
+
+        // 注册 Capabilities，系统「默认应用」里才会出现 Markprose 自己的页面
+        let (caps, _) = hkcu
+            .create_subkey(r"Software\Markprose\Capabilities")
+            .map_err(err)?;
+        caps.set_value("ApplicationName", &"Markprose").map_err(err)?;
+        caps.set_value("ApplicationDescription", &"所见即所得的 Markdown 编辑器")
+            .map_err(err)?;
+        let (fa, _) = caps.create_subkey("FileAssociations").map_err(err)?;
+        for ext in [".md", ".markdown", ".mdown", ".txt"] {
+            fa.set_value(ext, &"Markprose.md").map_err(err)?;
+        }
+        let (reg, _) = hkcu
+            .create_subkey(r"Software\RegisteredApplications")
+            .map_err(err)?;
+        reg.set_value("Markprose", &r"Software\Markprose\Capabilities")
+            .map_err(err)?;
         Ok(())
     }
     #[cfg(not(target_os = "windows"))]
@@ -497,8 +514,14 @@ fn set_default_app() -> Result<String, String> {
             ext.set_value("", &"Markprose.md").map_err(err)?;
         }
 
+        // 直接打开 Markprose 在「默认应用」里的专属页面，用户只需点一下「设置默认值」
         let _ = std::process::Command::new("cmd")
-            .args(["/C", "start", "", "ms-settings:defaultapps"])
+            .args([
+                "/C",
+                "start",
+                "",
+                "ms-settings:defaultapps?registeredAppUser=Markprose",
+            ])
             .spawn();
 
         Ok(if blocked { "blocked".into() } else { "set".into() })
