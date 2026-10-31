@@ -1956,8 +1956,11 @@ function showMenuBar(btn: HTMLElement, menu: MMenu) {
     }
     const row = h("div", {
       class: "mb-row" + (it.checked?.() ? " checked" : ""),
-      onmousedown: (e: MouseEvent) => e.preventDefault(),
-      onclick: () => {
+      onmousedown: (e: MouseEvent) => {
+        if (e.button !== 0) return;
+        // 菜单项在 mousedown 就执行：面板一旦被移出文档，click 永远不会到达
+        e.preventDefault();
+        e.stopPropagation();
         closeMenuBar();
         it.run?.();
       },
@@ -2239,7 +2242,12 @@ function buildMenuBar() {
   root.innerHTML = "";
   for (const m of menuDefs()) {
     const btn = h("button", { class: "mb-item", text: m.label });
-    btn.addEventListener("click", () => showMenuBar(btn, m));
+    // 和系统菜单一致：按下鼠标就展开，不依赖 click
+    btn.addEventListener("mousedown", (e: MouseEvent) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      showMenuBar(btn, m);
+    });
     btn.addEventListener("mouseenter", () => {
       if (mbPanel && mbBtn !== btn) showMenuBar(btn, m);
     });
@@ -2247,7 +2255,8 @@ function buildMenuBar() {
   }
   document.addEventListener("mousedown", (e) => {
     if (!mbPanel) return;
-    if ((e.target as HTMLElement).closest("#menubar")) return;
+    const t = e.target as HTMLElement | null;
+    if (t?.closest("#menubar") || t?.closest(".mb-panel")) return;
     closeMenuBar();
   });
   document.addEventListener(
@@ -2260,6 +2269,20 @@ function buildMenuBar() {
     },
     true
   );
+}
+
+/* ================= 右键菜单 ================= */
+function bindContextMenu() {
+  // WebView2 自带的「返回 / 刷新 / 另存为 / 打印」一律屏蔽
+  document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  // 编辑区里任意位置右键都出自家菜单，正文下方的留白也算
+  $("#editor-host")?.addEventListener("contextmenu", (e) => {
+    // CodeMirror 已经在正文上处理过并阻止了默认行为
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    showEditorMenu(e.clientX, e.clientY);
+  });
 }
 
 /* ================= 启动 ================= */
@@ -2291,6 +2314,7 @@ async function boot() {
   bindShortcuts();
   await bindWindow();
   buildMenuBar();
+  bindContextMenu();
 
   // 启动时把当前侧栏面板渲染一次，否则「文件」底下是空的，切一次面板才出来
   switchPanel(($(".sb-tab.active") as HTMLElement | null)?.dataset.panel || "files");
