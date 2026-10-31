@@ -1858,11 +1858,81 @@ interface MItem {
   sep?: boolean;
   checked?: () => boolean;
   run?: () => void;
+  /** 菜单项左侧的矢量图标 */
+  icon?: keyof typeof MICONS;
+  /** 没有合适矢量图时用文字标记（B / I / H1 …） */
+  glyph?: string;
 }
 interface MMenu {
   label: string;
   items: () => MItem[];
 }
+
+/** 菜单图标：16×16，描边风格，与工具栏保持一致 */
+const MICONS = {
+  page: '<path d="M4 1.8h5l3 3v9.4H4z"/><path d="M9 1.8v3h3"/>',
+  new: '<path d="M4 1.8h5l3 3v9.4H4z"/><path d="M9 1.8v3h3"/><path d="M8 7.4v3.6M6.2 9.2h3.6"/>',
+  folder:
+    '<path d="M1.8 4.6a1 1 0 0 1 1-1h3.2l1.4 1.6h5.8a1 1 0 0 1 1 1v6.6a1 1 0 0 1-1 1H2.8a1 1 0 0 1-1-1z"/>',
+  folderOpen:
+    '<path d="M1.8 4.6a1 1 0 0 1 1-1h3.2l1.4 1.6h5.8a1 1 0 0 1 1 1v1.2H1.8z"/><path d="M1.8 7.4h12.4l-1.5 5.1a1 1 0 0 1-1 .7H4.3a1 1 0 0 1-1-.7z"/>',
+  save: '<path d="M3 2.5h7.6L13.5 5.4v8.1h-10.5z"/><path d="M5.6 2.5v3.2h4.3V2.5"/><path d="M5.6 13.5V9.2h4.8v4.3"/>',
+  saveAs:
+    '<path d="M2.6 2.5h6.9L12.2 5.2v4.4"/><path d="M4.9 2.5v2.9h3.8V2.5"/><path d="M4.9 13.5V9.3h4v4.2"/><path d="M12.6 3.4v3.4M10.9 5.1h3.4"/>',
+  saveAll:
+    '<path d="M2 4.6h7.4L11.6 7v6.4H2z"/><path d="M4.6 2.5h7.4L14.2 4.9V11"/>',
+  export: '<path d="M8 10.2V2.4M5.2 5.2L8 2.4l2.8 2.8"/><path d="M2.6 9.6v4h10.8v-4"/>',
+  print:
+    '<path d="M4.6 2.5h6.8V6H4.6z"/><path d="M2.5 6h11v4.6h-2.4"/><path d="M4.6 9h6.8v4.5H4.6z"/>',
+  external:
+    '<path d="M9.2 2.5h4.3v4.3"/><path d="M13.5 2.5L7.4 8.6"/><path d="M12 9.4v4.1H2.5V4h4.1"/>',
+  reload: '<path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13.2 2.5v3h-3"/>',
+  close: '<path d="M4.2 4.2l7.6 7.6M11.8 4.2l-7.6 7.6"/>',
+  power: '<path d="M8 2.4v4.8"/><path d="M5.1 4.2a4.6 4.6 0 1 0 5.8 0"/>',
+  undo: '<path d="M4.5 7.5h5.2a3.6 3.6 0 1 1 0 7.2H6.2"/><path d="M7 4.5L4 7.5l3 3"/>',
+  redo: '<path d="M11.5 7.5H6.3a3.6 3.6 0 1 0 0 7.2h3.5"/><path d="M9 4.5l3 3-3 3"/>',
+  cut: '<path d="M3.4 2.6l7.4 8.2M12.6 2.6L5.2 10.8"/><circle cx="3.4" cy="12.4" r="1.5"/><circle cx="12.6" cy="12.4" r="1.5"/>',
+  copy: '<path d="M5.6 5.6h7.9v7.9H5.6z"/><path d="M2.5 10.4V2.5h7.9"/>',
+  paste: '<path d="M4.2 3.4h7.6v10.1H4.2z"/><path d="M6.2 2.5h3.6v2.1H6.2z"/>',
+  up: '<path d="M8 13V3.4M4.4 7L8 3.4 11.6 7"/>',
+  down: '<path d="M8 3v9.6M4.4 9L8 12.6 11.6 9"/>',
+  search: '<circle cx="7" cy="7" r="4.3"/><path d="M10.2 10.2l3.3 3.3"/>',
+  zoomIn: '<circle cx="7" cy="7" r="4.3"/><path d="M10.2 10.2l3.3 3.3"/><path d="M5 7h4M7 5v4"/>',
+  zoomOut: '<circle cx="7" cy="7" r="4.3"/><path d="M10.2 10.2l3.3 3.3"/><path d="M5 7h4"/>',
+  zoomReset: '<circle cx="7" cy="7" r="4.3"/><path d="M10.2 10.2l3.3 3.3"/><path d="M5 7h4M7 5v4"/>',
+  selectAll:
+    '<path d="M5.4 2.5H2.5v2.9M10.6 2.5h2.9v2.9M13.5 10.6v2.9h-2.9M5.4 13.5H2.5v-2.9"/>',
+  quote:
+    '<path d="M6.2 5.2c-1.7.9-2.5 2.3-2.5 4.2"/><path d="M10.6 5.2c-1.7.9-2.5 2.3-2.5 4.2"/><circle cx="3.7" cy="10.8" r="1.1" fill="currentColor" stroke="none"/><circle cx="8.1" cy="10.8" r="1.1" fill="currentColor" stroke="none"/>',
+  table:
+    '<path d="M2.4 3.4h11.2v9.2H2.4z"/><path d="M2.4 6.7h11.2M6.4 6.7v5.9M9.9 6.7v5.9"/>',
+  codeblock:
+    '<path d="M5.6 5.4L2.6 8l3 2.6"/><path d="M10.4 5.4L13.4 8l-3 2.6"/>',
+  highlight:
+    '<path d="M6.2 10.2l4.2-4.2 2.1 2.1-4.2 4.2H6.2z"/><path d="M10.4 6l1.1-1.1 2.1 2.1-1.1 1.1"/><path d="M3 13.4h10"/>',
+  link: '<path d="M6.6 9.4a2.9 2.9 0 0 0 4.1 0l1.9-1.9a2.9 2.9 0 0 0-4.1-4.1l-1 1"/><path d="M9.4 6.6a2.9 2.9 0 0 0-4.1 0l-1.9 1.9a2.9 2.9 0 0 0 4.1 4.1l1-1"/>',
+  image:
+    '<path d="M2.4 3.4h11.2v9.2H2.4z"/><circle cx="5.9" cy="6.5" r="1.05"/><path d="M2.8 11.4l3.1-3 2.4 2.3 2.2-2.1 2.7 2.8"/>',
+  eraser: '<path d="M3.4 10.6l5.6-5.6 3.2 3.2-4.6 4.6H4.9z"/><path d="M8.4 13.5h5.2"/>',
+  panel: '<path d="M2.5 3.4h11v9.2h-11z"/><path d="M6.4 3.4v9.2"/>',
+  doc: '<path d="M4.4 2.5h4.6l2.6 2.6v8.4H4.4z"/><path d="M9 2.5v2.6h2.6"/>',
+  list: '<path d="M5.4 4.4h8M5.4 8h8M5.4 11.6h8"/><path d="M2.6 4.4h1M2.6 8h1M2.6 11.6h1"/>',
+  code: '<path d="M6 4.4L2.8 8 6 11.6"/><path d="M10 4.4L13.2 8 10 11.6"/>',
+  target: '<circle cx="8" cy="8" r="5.2"/><circle cx="8" cy="8" r="1.9"/>',
+  cursor: '<path d="M6.2 3.2h3.6M8 3.2v9.6M6.2 12.8h3.6"/>',
+  hash: '<path d="M6.4 2.6l-1 10.8M10.6 2.6l-1 10.8M2.6 6.2h10.8M2 9.8h10.8"/>',
+  fullscreen:
+    '<path d="M2.6 6V2.6H6M10 2.6h3.4V6M13.4 10v3.4H10M6 13.4H2.6V10"/>',
+  palette:
+    '<path d="M8 2.4a5.6 5.6 0 0 0 0 11.2c.9 0 1.4-.6 1.4-1.4 0-.9.5-1.4 1.4-1.4h1.1a2 2 0 0 0 2-2A5.6 5.6 0 0 0 8 2.4z"/><circle cx="5.4" cy="6.4" r=".9" fill="currentColor" stroke="none"/><circle cx="8.6" cy="5.2" r=".9" fill="currentColor" stroke="none"/><circle cx="4.6" cy="9.4" r=".9" fill="currentColor" stroke="none"/>',
+  settings:
+    '<path d="M2.6 5.2h10.8M2.6 10.8h10.8"/><circle cx="6" cy="5.2" r="1.9"/><circle cx="10.4" cy="10.8" r="1.9"/>',
+  command: '<path d="M2.6 3.4h10.8v9.2H2.6z"/><path d="M5.2 6.8l2 1.7-2 1.7"/><path d="M9.2 10.2h2.4"/>',
+  keyboard:
+    '<path d="M2 4.6h12v6.8H2z"/><path d="M4.4 6.6h.01M6.8 6.6h.01M9.2 6.6h.01M11.6 6.6h.01M4.8 9.6h6.4"/>',
+  info: '<circle cx="8" cy="8" r="5.4"/><path d="M8 7.2v4"/><path d="M8 4.9h.01"/>',
+} as const;
+
 
 let mbPanel: HTMLElement | null = null;
 let mbBtn: HTMLElement | null = null;
@@ -1892,6 +1962,18 @@ function showMenuBar(btn: HTMLElement, menu: MMenu) {
         it.run?.();
       },
     });
+    row.appendChild(h("span", { class: "mb-check" }));
+    const slot = h("span", { class: "mb-ico" });
+    if (it.icon) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 16 16");
+      svg.innerHTML = MICONS[it.icon] || "";
+      slot.appendChild(svg);
+    } else if (it.glyph) {
+      slot.classList.add("g");
+      slot.textContent = it.glyph;
+    }
+    row.appendChild(slot);
     row.appendChild(h("span", { class: "mb-label", text: it.label || "" }));
     if (it.key) row.appendChild(h("span", { class: "mb-key", text: it.key }));
     panel.appendChild(row);
@@ -1992,50 +2074,52 @@ function menuDefs(): MMenu[] {
     {
       label: "文件",
       items: () => [
-        { label: "新建", key: "Ctrl+N", run: () => newTab() },
-        { label: "打开文件…", key: "Ctrl+O", run: () => void openFileDialog() },
-        { label: "打开文件夹…", key: "Ctrl+Shift+O", run: () => void openFolderDialog() },
+        { label: "新建", key: "Ctrl+N", icon: "new", run: () => newTab() },
+        { label: "打开文件…", key: "Ctrl+O", icon: "page", run: () => void openFileDialog() },
+        { label: "打开文件夹…", key: "Ctrl+Shift+O", icon: "folderOpen", run: () => void openFolderDialog() },
         { sep: true },
-        { label: "保存", key: "Ctrl+S", run: () => void saveTab() },
-        { label: "另存为…", key: "Ctrl+Shift+S", run: () => void saveTab(true) },
-        { label: "保存全部", run: () => void saveAllTabs() },
+        { label: "保存", key: "Ctrl+S", icon: "save", run: () => void saveTab() },
+        { label: "另存为…", key: "Ctrl+Shift+S", icon: "saveAs", run: () => void saveTab(true) },
+        { label: "保存全部", icon: "saveAll", run: () => void saveAllTabs() },
         { sep: true },
-        { label: "导出 HTML…", run: () => void exportHtml() },
-        { label: "打印 / 导出 PDF…", run: () => void exportPdf() },
+        { label: "导出 HTML…", icon: "export", run: () => void exportHtml() },
+        { label: "打印 / 导出 PDF…", icon: "print", run: () => void exportPdf() },
         { sep: true },
         {
           label: "在资源管理器中显示",
+          icon: "external",
           run: () => {
             const p = activeTab()?.path;
             if (p) revealInExplorer(p);
           },
         },
-        { label: "重新加载当前文件", run: () => void reloadCurrent() },
+        { label: "重新加载当前文件", icon: "reload", run: () => void reloadCurrent() },
         { sep: true },
-        { label: "关闭标签", key: "Ctrl+W", run: () => app.activeId && void closeTab(app.activeId) },
-        { label: "退出", run: () => void doClose() },
+        { label: "关闭标签", key: "Ctrl+W", icon: "close", run: () => app.activeId && void closeTab(app.activeId) },
+        { label: "退出", icon: "power", run: () => void doClose() },
       ],
     },
     {
       label: "编辑",
       items: () => [
-        { label: "撤销", key: "Ctrl+Z", run: () => undo(view) },
-        { label: "重做", key: "Ctrl+Y", run: () => redo(view) },
+        { label: "撤销", key: "Ctrl+Z", icon: "undo", run: () => undo(view) },
+        { label: "重做", key: "Ctrl+Y", icon: "redo", run: () => redo(view) },
         { sep: true },
-        { label: "剪切", key: "Ctrl+X", run: () => document.execCommand("cut") },
-        { label: "复制", key: "Ctrl+C", run: () => document.execCommand("copy") },
-        { label: "粘贴", key: "Ctrl+V", run: () => void pastePlain() },
-        { label: "复制为纯文本", run: () => void copyAsPlainText() },
+        { label: "剪切", key: "Ctrl+X", icon: "cut", run: () => document.execCommand("cut") },
+        { label: "复制", key: "Ctrl+C", icon: "copy", run: () => document.execCommand("copy") },
+        { label: "粘贴", key: "Ctrl+V", icon: "paste", run: () => void pastePlain() },
+        { label: "复制为纯文本", glyph: "T", run: () => void copyAsPlainText() },
         { sep: true },
-        { label: "上移该行", key: "Alt+↑", run: () => moveLineUp(view) },
-        { label: "下移该行", key: "Alt+↓", run: () => moveLineDown(view) },
+        { label: "上移该行", key: "Alt+↑", icon: "up", run: () => moveLineUp(view) },
+        { label: "下移该行", key: "Alt+↓", icon: "down", run: () => moveLineDown(view) },
         { sep: true },
-        { label: "查找", key: "Ctrl+F", run: () => openSearchPanel(view) },
-        { label: "查找并替换", key: "Ctrl+H", run: () => openSearchPanel(view) },
+        { label: "查找", key: "Ctrl+F", icon: "search", run: () => openSearchPanel(view) },
+        { label: "查找并替换", key: "Ctrl+H", glyph: "⇄", run: () => openSearchPanel(view) },
         { sep: true },
         {
           label: "全选",
           key: "Ctrl+A",
+          icon: "selectAll",
           run: () => {
             view.focus();
             view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
@@ -2046,35 +2130,36 @@ function menuDefs(): MMenu[] {
     {
       label: "格式",
       items: () => [
-        { label: "正文", key: "Ctrl+0", run: F("heading", 0) },
-        { label: "标题 1", key: "Ctrl+1", run: F("heading", 1) },
-        { label: "标题 2", key: "Ctrl+2", run: F("heading", 2) },
-        { label: "标题 3", key: "Ctrl+3", run: F("heading", 3) },
-        { label: "标题 4", key: "Ctrl+4", run: F("heading", 4) },
-        { label: "标题 5", key: "Ctrl+5", run: F("heading", 5) },
-        { label: "标题 6", key: "Ctrl+6", run: F("heading", 6) },
+        { label: "正文", key: "Ctrl+0", glyph: "T", run: F("heading", 0) },
+        { label: "标题 1", key: "Ctrl+1", glyph: "H1", run: F("heading", 1) },
+        { label: "标题 2", key: "Ctrl+2", glyph: "H2", run: F("heading", 2) },
+        { label: "标题 3", key: "Ctrl+3", glyph: "H3", run: F("heading", 3) },
+        { label: "标题 4", key: "Ctrl+4", glyph: "H4", run: F("heading", 4) },
+        { label: "标题 5", key: "Ctrl+5", glyph: "H5", run: F("heading", 5) },
+        { label: "标题 6", key: "Ctrl+6", glyph: "H6", run: F("heading", 6) },
         { sep: true },
-        { label: "加粗", key: "Ctrl+B", run: F("bold") },
-        { label: "斜体", key: "Ctrl+I", run: F("italic") },
-        { label: "删除线", key: "Ctrl+U", run: F("strike") },
-        { label: "行内代码", key: "Ctrl+E", run: F("code") },
-        { label: "高亮", key: "Ctrl+Shift+H", run: F("highlight") },
+        { label: "加粗", key: "Ctrl+B", glyph: "B", run: F("bold") },
+        { label: "斜体", key: "Ctrl+I", glyph: "I", run: F("italic") },
+        { label: "删除线", key: "Ctrl+U", glyph: "S", run: F("strike") },
+        { label: "下划线", key: "Ctrl+Shift+U", glyph: "U", run: F("underline") },
+        { label: "行内代码", key: "Ctrl+E", glyph: "</>", run: F("code") },
+        { label: "高亮", key: "Ctrl+Shift+H", icon: "highlight", run: F("highlight") },
         { sep: true },
-        { label: "引用", key: "Ctrl+Shift+Q", run: F("quote") },
-        { label: "无序列表", run: F("ul") },
-        { label: "有序列表", run: F("ol") },
-        { label: "任务清单", run: F("task") },
+        { label: "引用", key: "Ctrl+Shift+Q", icon: "quote", run: F("quote") },
+        { label: "无序列表", glyph: "•", run: F("ul") },
+        { label: "有序列表", glyph: "1.", run: F("ol") },
+        { label: "任务清单", glyph: "☑", run: F("task") },
         { sep: true },
-        { label: "表格", key: "Ctrl+T", run: F("table") },
-        { label: "代码块", key: "Ctrl+Shift+K", run: F("codeblock") },
-        { label: "公式", run: F("math") },
-        { label: "分隔线", run: F("hr") },
-        { label: "目录", run: F("toc") },
+        { label: "表格", key: "Ctrl+T", icon: "table", run: F("table") },
+        { label: "代码块", key: "Ctrl+Shift+K", icon: "codeblock", run: F("codeblock") },
+        { label: "公式", glyph: "∑", run: F("math") },
+        { label: "分隔线", glyph: "—", run: F("hr") },
+        { label: "目录", glyph: "TOC", run: F("toc") },
         { sep: true },
-        { label: "链接", key: "Ctrl+K", run: F("link") },
-        { label: "图片", run: F("image") },
+        { label: "链接", key: "Ctrl+K", icon: "link", run: F("link") },
+        { label: "图片", icon: "image", run: F("image") },
         { sep: true },
-        { label: "清除格式", run: clearFormat },
+        { label: "清除格式", icon: "eraser", run: clearFormat },
       ],
     },
     {
@@ -2083,31 +2168,33 @@ function menuDefs(): MMenu[] {
         {
           label: "侧边栏",
           key: "Ctrl+\\",
+          icon: "panel",
           checked: () => settings.sidebar,
           run: () => toggleSetting("sidebar"),
         },
-        { label: "文件列表", checked: () => $(".sb-tab.active")?.getAttribute("data-panel") === "files", run: () => switchPanel("files") },
-        { label: "大纲", checked: () => $(".sb-tab.active")?.getAttribute("data-panel") === "outline", run: () => switchPanel("outline") },
-        { label: "搜索", checked: () => $(".sb-tab.active")?.getAttribute("data-panel") === "search", run: () => switchPanel("search") },
+        { label: "文件列表", icon: "doc", checked: () => $(".sb-tab.active")?.getAttribute("data-panel") === "files", run: () => switchPanel("files") },
+        { label: "大纲", icon: "list", checked: () => $(".sb-tab.active")?.getAttribute("data-panel") === "outline", run: () => switchPanel("outline") },
+        { label: "搜索", icon: "search", checked: () => $(".sb-tab.active")?.getAttribute("data-panel") === "search", run: () => switchPanel("search") },
         { sep: true },
-        { label: "源码模式", key: "Ctrl+/", checked: () => settings.sourceMode, run: toggleSource },
-        { label: "专注模式", checked: () => settings.focusMode, run: () => toggleSetting("focusMode") },
-        { label: "打字机模式", checked: () => settings.typewriter, run: () => toggleSetting("typewriter") },
-        { label: "显示行号", checked: () => settings.lineNumbers, run: () => toggleSetting("lineNumbers") },
+        { label: "源码模式", key: "Ctrl+/", icon: "code", checked: () => settings.sourceMode, run: toggleSource },
+        { label: "专注模式", icon: "target", checked: () => settings.focusMode, run: () => toggleSetting("focusMode") },
+        { label: "打字机模式", icon: "cursor", checked: () => settings.typewriter, run: () => toggleSetting("typewriter") },
+        { label: "显示行号", icon: "hash", checked: () => settings.lineNumbers, run: () => toggleSetting("lineNumbers") },
         { sep: true },
-        { label: "放大", key: "Ctrl+=", run: () => zoomBy(0.5) },
-        { label: "缩小", key: "Ctrl+-", run: () => zoomBy(-0.5) },
-        { label: "实际大小", key: "Ctrl+Shift+0", run: resetZoom },
-        { label: "全屏", key: "F11", run: () => void toggleFullscreen() },
+        { label: "放大", key: "Ctrl+=", icon: "zoomIn", run: () => zoomBy(0.5) },
+        { label: "缩小", key: "Ctrl+-", icon: "zoomOut", run: () => zoomBy(-0.5) },
+        { label: "实际大小", key: "Ctrl+Shift+0", icon: "zoomReset", run: resetZoom },
+        { label: "全屏", key: "F11", icon: "fullscreen", run: () => void toggleFullscreen() },
         { sep: true },
         ...THEMES.map((t) => ({
           label: t.name,
+          icon: "palette" as const,
           checked: () => settings.theme === t.id,
           run: () => setTheme(t.id),
         })),
         { sep: true },
-        { label: "设置…", key: "Ctrl+,", run: () => openSettings() },
-        { label: "命令面板…", key: "Ctrl+Shift+P", run: () => openPalette() },
+        { label: "设置…", key: "Ctrl+,", icon: "settings", run: () => openSettings() },
+        { label: "命令面板…", key: "Ctrl+Shift+P", icon: "command", run: () => openPalette() },
       ],
     },
     {
@@ -2115,12 +2202,13 @@ function menuDefs(): MMenu[] {
       items: () => [
         {
           label: "快捷键一览",
+          icon: "keyboard",
           run: () =>
             void alertBox({
               title: "快捷键",
               message:
                 "新建 Ctrl+N　　打开 Ctrl+O　　保存 Ctrl+S\n" +
-                "加粗 Ctrl+B　　斜体 Ctrl+I　　删除线 Ctrl+U\n" +
+                "加粗 Ctrl+B　　斜体 Ctrl+I　　删除线 Ctrl+U　　下划线 Ctrl+Shift+U\n" +
                 "行内代码 Ctrl+E　　高亮 Ctrl+Shift+H\n" +
                 "链接 Ctrl+K　　表格 Ctrl+T　　代码块 Ctrl+Shift+K\n" +
                 "标题 1–6 Ctrl+1…6　　正文 Ctrl+0\n" +
@@ -2131,6 +2219,7 @@ function menuDefs(): MMenu[] {
         },
         {
           label: "GitHub 仓库",
+          icon: "external",
           run: async () => {
             if (!IS_TAURI) return;
             const { invoke } = await import("@tauri-apps/api/core");
@@ -2138,7 +2227,7 @@ function menuDefs(): MMenu[] {
           },
         },
         { sep: true },
-        { label: "关于 Markprose", run: () => void alertBox({ title: "关于 Markprose", message: "v1.0.0" }) },
+        { label: "关于 Markprose", icon: "info", run: () => void alertBox({ title: "关于 Markprose", message: "v1.0.0" }) },
       ],
     },
   ];

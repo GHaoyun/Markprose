@@ -29,7 +29,8 @@ function inline(s: string): string {
   out = out.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
   out = out.replace(/~~([^~]+)~~/g, "<del>$1</del>");
   out = out.replace(/==([^=\n]+)==/g, '<mark class="mk">$1</mark>');
-  out = out.replace(/\+\+([^+\n]+)\+\+/g, '<u>$1</u>');
+  out = out.replace(/&lt;u&gt;(.*?)&lt;\/u&gt;/g, "<u>$1</u>");
+  out = out.replace(/\+\+([^+\n]+)\+\+/g, "<u>$1</u>");
   out = out.replace(/\u0000(\d+)\u0000/g, (_m, i) => `<code>${codes[+i]}</code>`);
   out = out.replace(/\u0001(\d+)\u0001/g, (_m, i) => `<span class="math">${maths[+i]}</span>`);
   return out;

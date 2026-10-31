@@ -210,7 +210,38 @@ export const cmdItalic = (v: EditorView) => toggleWrapped(v, ["Emphasis"], "*", 
 export const cmdStrike = (v: EditorView) => toggleWrapped(v, ["Strikethrough"], "~~", "删除线");
 export const cmdCode = (v: EditorView) => toggleWrapped(v, ["InlineCode"], "`", "代码");
 export const cmdMark = (v: EditorView) => toggleWrapped(v, ["Highlight"], "==", "高亮");
-export const cmdUnderline = (v: EditorView) => toggleWrapped(v, [], "++", "下划线");
+export function cmdUnderline(v: EditorView) {
+  const { from, to } = v.state.selection.main;
+  const raw = v.state.sliceDoc(from, to);
+  const open = "<u>";
+  const close = "</u>";
+  const wrapped = /^<u>([\s\S]*)<\/u>$/.exec(raw);
+  if (wrapped) {
+    const inner = wrapped[1];
+    v.dispatch({
+      changes: { from, to, insert: inner },
+      selection: { anchor: from + inner.length },
+    });
+    v.focus();
+    return;
+  }
+  const lead = /^\s*/.exec(raw)![0];
+  const trail = /\s*$/.exec(raw)![0];
+  const core = raw.slice(lead.length, raw.length - trail.length);
+  if (!core) {
+    v.dispatch({
+      changes: { from, to, insert: open + close },
+      selection: { anchor: from + open.length },
+    });
+    v.focus();
+    return;
+  }
+  v.dispatch({
+    changes: { from, to, insert: lead + open + core + close + trail },
+    selection: { anchor: from + lead.length + open.length + core.length + close.length },
+  });
+  v.focus();
+}
 export const cmdMath = (v: EditorView) => toggleWrapped(v, ["InlineMath"], "$", "x");
 
 /* ---------- 代码块 ---------- */

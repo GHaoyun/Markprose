@@ -834,6 +834,7 @@ export function buildDecorations(view: EditorView): DecorationSet {
   const doc = state.doc;
   const decos: Range<Decoration>[] = [];
   const replaced: Span[] = [];
+  const hidden: Span[] = [];
   const inlineCode: Span[] = [];
   const sels = state.selection.ranges.map((r) => ({ from: r.from, to: r.to }));
   const touching = (from: number, to: number) => sels.some((r) => r.from <= to && r.to >= from);
@@ -854,7 +855,10 @@ export function buildDecorations(view: EditorView): DecorationSet {
   const lastLine = doc.lineAt(vTo).number;
 
   const hide = (from: number, to: number) => {
-    if (to > from) decos.push(Decoration.replace({}).range(from, to));
+    if (to > from) {
+      decos.push(Decoration.replace({}).range(from, to));
+      hidden.push([from, to]);
+    }
   };
 
   /* ---- 语法树：行内元素 ---- */
@@ -1118,6 +1122,25 @@ export function buildDecorations(view: EditorView): DecorationSet {
         const e = s + m[0].length;
         if (overlaps(inlineCode, s, e) || overlaps(replaced, s, e) || reveal(s, e)) continue;
         decos.push(Decoration.replace({ widget: new EmojiWidget(ch) }).range(s, e));
+      }
+    }
+
+    if (text.includes("<u>")) {
+      const re = /<u>([^<\n]+?)<\/u>/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text))) {
+        const s = line.from + m.index;
+        const e = s + m[0].length;
+        if (
+          overlaps(inlineCode, s, e) ||
+          overlaps(replaced, s, e) ||
+          overlaps(hidden, s, e) ||
+          reveal(s, e)
+        )
+          continue;
+        decos.push(Decoration.mark({ class: "cm-underline" }).range(s + 3, e - 4));
+        hide(s, s + 3);
+        hide(e - 4, e);
       }
     }
 
