@@ -1,15 +1,21 @@
-<p align="center"><img src="docs/icon.png" width="64" alt="Markprose"></p>
+<p align="center">
+  <img src="docs/icon.png" width="112" alt="Markprose">
+</p>
 
-# Markprose
+<h1 align="center">Markprose</h1>
 
-[简体中文](README.md) | **English**
+<p align="center"><b>English</b> | <a href="README.md">简体中文</a></p>
+
+<p align="center">
+  <a href="https://github.com/GHaoyun/Markprose/releases"><img src="https://img.shields.io/github/v/release/GHaoyun/Markprose?color=b4623a&label=version" alt="Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%20x64-6b6b6b" alt="Platform">
+  <a href="https://github.com/GHaoyun/Markprose/releases"><img src="https://img.shields.io/github/downloads/GHaoyun/Markprose/total?color=2f7d5b" alt="Downloads"></a>
+  <a href="https://github.com/GHaoyun/Markprose/stargazers"><img src="https://img.shields.io/github/stars/GHaoyun/Markprose?color=e2a674" alt="Stars"></a>
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=GHaoyun.Markprose" alt="Views">
+</p>
 
 A free and open-source Markdown editor for Windows x64, available as an installer and a portable build. Very small and simple, but fully featured.
-
-[![Version](https://img.shields.io/badge/version-1.1.0-b4623a)](https://github.com/GHaoyun/Markprose/releases)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64-6b6b6b)]()
-[![Stars](https://img.shields.io/github/stars/GHaoyun/Markprose)](https://github.com/GHaoyun/Markprose/stargazers)
 
 ## Features
 
@@ -52,9 +58,9 @@ Open it and start typing. Formatting marks stay hidden until you move the cursor
 
 ## Installation
 
-Installer: run `Markprose_1.1.0_x64-setup.exe`. On first launch it asks where to keep your documents.
+Installer: run `Markprose_1.1.1_x64-setup.exe`. On first launch it asks where to keep your documents.
 
-Portable: run `Markprose-1.1.0-portable.exe` from any folder.
+Portable: run `Markprose-1.1.1-portable.exe` from any folder.
 
 ## Keyboard shortcuts
 

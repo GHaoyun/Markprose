@@ -1,15 +1,21 @@
-<p align="center"><img src="docs/icon.png" width="64" alt="Markprose"></p>
+<p align="center">
+  <img src="docs/icon.png" width="112" alt="Markprose">
+</p>
 
-# Markprose
+<h1 align="center">Markprose</h1>
 
-**简体中文** | [English](README.en.md)
+<p align="center"><a href="README.en.md">English</a> | <b>简体中文</b></p>
+
+<p align="center">
+  <a href="https://github.com/GHaoyun/Markprose/releases"><img src="https://img.shields.io/github/v/release/GHaoyun/Markprose?color=b4623a&label=version" alt="Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License"></a>
+  <img src="https://img.shields.io/badge/platform-Windows%20x64-6b6b6b" alt="Platform">
+  <a href="https://github.com/GHaoyun/Markprose/releases"><img src="https://img.shields.io/github/downloads/GHaoyun/Markprose/total?color=2f7d5b" alt="Downloads"></a>
+  <a href="https://github.com/GHaoyun/Markprose/stargazers"><img src="https://img.shields.io/github/stars/GHaoyun/Markprose?color=e2a674" alt="Stars"></a>
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=GHaoyun.Markprose" alt="Views">
+</p>
 
 一个免费开源的 Markdown 编辑器。Windows x64，包含便携版和安装包。非常非常小巧简洁，但是功能全面。
-
-[![Version](https://img.shields.io/badge/version-1.1.0-b4623a)](https://github.com/GHaoyun/Markprose/releases)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20x64-6b6b6b)]()
-[![Stars](https://img.shields.io/github/stars/GHaoyun/Markprose)](https://github.com/GHaoyun/Markprose/stargazers)
 
 ## 功能
 
@@ -52,9 +58,9 @@
 
 ## 安装
 
-安装包：运行 `Markprose_1.1.0_x64-setup.exe`，装完首次启动会让你选文档保存位置。
+安装包：运行 `Markprose_1.1.1_x64-setup.exe`，装完首次启动会让你选文档保存位置。
 
-便携版：`Markprose-1.1.0-portable.exe` 放到任意目录直接运行。
+便携版：`Markprose-1.1.1-portable.exe` 放到任意目录直接运行。
 
 ## 快捷键
 
