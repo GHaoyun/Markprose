@@ -409,6 +409,106 @@ fn startup_files() -> Vec<String> {
     out
 }
 
+/// 把当前 exe 注册进「打开方式」列表（HKCU，不需要管理员权限）
+#[tauri::command]
+fn register_file_assoc() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
+
+        let exe = std::env::current_exe().map_err(err)?;
+        let cmd = format!("\"{}\" \"%1\"", exe.display());
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+
+        let (app, _) = hkcu
+            .create_subkey(r"Software\Classes\Applications\Markprose.exe")
+            .map_err(err)?;
+        app.set_value("FriendlyAppName", &"Markprose").map_err(err)?;
+        let (shell, _) = app
+            .create_subkey(r"shell\open\command")
+            .map_err(err)?;
+        shell.set_value("", &cmd).map_err(err)?;
+        let (types, _) = app.create_subkey("SupportedTypes").map_err(err)?;
+        for ext in [".md", ".markdown", ".mdown", ".txt"] {
+            types.set_value(ext, &"").map_err(err)?;
+        }
+        let (icon, _) = app.create_subkey("DefaultIcon").map_err(err)?;
+        icon.set_value("", &format!("{},0", exe.display())).map_err(err)?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(())
+    }
+}
+
+/// 当前是不是 .md 的默认程序
+#[tauri::command]
+fn is_default_app() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        if let Ok(key) = hkcu.open_subkey(r"Software\Classes\.md") {
+            if let Ok(v) = key.get_value::<String, _>("") {
+                return v == "Markprose.md";
+            }
+        }
+        false
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
+}
+
+/// 尝试把 Markprose 设为 .md 的默认程序。
+/// 返回 "set"（已设置）或 "blocked"（被系统 UserChoice 拦住，需要用户手动确认）
+#[tauri::command]
+fn set_default_app() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use winreg::enums::HKEY_CURRENT_USER;
+        use winreg::RegKey;
+
+        let exe = std::env::current_exe().map_err(err)?;
+        let cmd = format!("\"{}\" \"%1\"", exe.display());
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+
+        // ProgID
+        let (prog, _) = hkcu
+            .create_subkey(r"Software\Classes\Markprose.md")
+            .map_err(err)?;
+        prog.set_value("", &"Markprose Markdown 文档").map_err(err)?;
+        let (shell, _) = prog.create_subkey(r"shell\open\command").map_err(err)?;
+        shell.set_value("", &cmd).map_err(err)?;
+        let (icon, _) = prog.create_subkey("DefaultIcon").map_err(err)?;
+        icon.set_value("", &format!("{},0", exe.display())).map_err(err)?;
+
+        // 系统里已经有用户选择记录时，程序改不动，只能引导用户去设置页
+        let blocked = hkcu
+            .open_subkey(r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.md\UserChoice")
+            .is_ok();
+
+        if !blocked {
+            let (ext, _) = hkcu.create_subkey(r"Software\Classes\.md").map_err(err)?;
+            ext.set_value("", &"Markprose.md").map_err(err)?;
+        }
+
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", "", "ms-settings:defaultapps"])
+            .spawn();
+
+        Ok(if blocked { "blocked".into() } else { "set".into() })
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok("blocked".into())
+    }
+}
+
 #[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
@@ -473,6 +573,9 @@ pub fn run() {
             default_save_dir,
             list_fonts,
             startup_files,
+            register_file_assoc,
+            is_default_app,
+            set_default_app,
             open_path,
             reveal_in_explorer
         ])

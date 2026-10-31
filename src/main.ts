@@ -10,7 +10,7 @@ import "katex/dist/katex.min.css";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { openSearchPanel } from "@codemirror/search";
-import { redo, undo } from "@codemirror/commands";
+import { moveLineDown, moveLineUp, redo, undo } from "@codemirror/commands";
 import { syntaxTree } from "@codemirror/language";
 
 import { $, $$, ctxMenu, h, hideCtx, icon, toast } from "./ui/dom";
@@ -31,7 +31,10 @@ import {
   renamePath,
   revealInExplorer,
   saveImage,
+  isDefaultApp,
+  registerFileAssoc,
   searchInFolder,
+  setDefaultApp,
   startupFiles,
   writeText,
   type SearchHit,
@@ -958,6 +961,43 @@ function openSettings() {
   toggle("显示行号", "左侧显示行号栏", "lineNumbers");
   toggle("显示侧边栏", "Ctrl + \\ 快速开关", "sidebar");
 
+  const assocRow = h("div", { class: "set-row" });
+  const assocDesc = h("div", { class: "d", text: "用 Markprose 打开 .md 文件" });
+  assocRow.appendChild(
+    h("div", { class: "set-label" },
+      h("div", { class: "t", text: "默认打开方式" }),
+      assocDesc
+    )
+  );
+  const assocBtn = h("button", {
+    class: "mini-btn",
+    text: "设为默认",
+    onclick: async () => {
+      if (!IS_TAURI) return;
+      try {
+        const r = await setDefaultApp();
+        if (r === "set") {
+          assocDesc.textContent = "当前已是默认程序";
+          toast("已设为默认打开方式");
+        } else {
+          assocDesc.textContent = "请在系统设置里选择 Markprose";
+          toast("已打开系统设置，手动选一下 Markprose", "info", 4000);
+        }
+      } catch (e: any) {
+        toast("设置失败：" + (e?.message || e), "err");
+      }
+    },
+  });
+  assocRow.appendChild(h("div", { class: "set-ctl" }, assocBtn));
+  body.appendChild(assocRow);
+  if (IS_TAURI) {
+    isDefaultApp()
+      .then((yes) => {
+        assocDesc.textContent = yes ? "当前已是默认程序" : "当前不是默认程序";
+      })
+      .catch(() => {});
+  }
+
   const repoRow = h("div", { class: "set-row" });
   repoRow.appendChild(
     h(
@@ -1793,6 +1833,328 @@ function showEditorMenu(x: number, y: number) {
   }, 0);
 }
 
+/* ================= 菜单栏 ================= */
+interface MItem {
+  label?: string;
+  key?: string;
+  sep?: boolean;
+  checked?: () => boolean;
+  run?: () => void;
+}
+interface MMenu {
+  label: string;
+  items: () => MItem[];
+}
+
+let mbPanel: HTMLElement | null = null;
+let mbBtn: HTMLElement | null = null;
+
+function closeMenuBar() {
+  mbPanel?.remove();
+  mbBtn?.classList.remove("open");
+  mbPanel = null;
+  mbBtn = null;
+}
+
+function showMenuBar(btn: HTMLElement, menu: MMenu) {
+  const same = mbBtn === btn;
+  closeMenuBar();
+  if (same) return;
+  const panel = h("div", { class: "mb-panel" });
+  for (const it of menu.items()) {
+    if (it.sep) {
+      panel.appendChild(h("div", { class: "mb-sep" }));
+      continue;
+    }
+    const row = h("div", {
+      class: "mb-row" + (it.checked?.() ? " checked" : ""),
+      onmousedown: (e: MouseEvent) => e.preventDefault(),
+      onclick: () => {
+        closeMenuBar();
+        it.run?.();
+      },
+    });
+    row.appendChild(h("span", { class: "mb-label", text: it.label || "" }));
+    if (it.key) row.appendChild(h("span", { class: "mb-key", text: it.key }));
+    panel.appendChild(row);
+  }
+  document.body.appendChild(panel);
+  const r = btn.getBoundingClientRect();
+  panel.style.left = Math.round(r.left) + "px";
+  panel.style.top = Math.round(r.bottom + 4) + "px";
+  const pr = panel.getBoundingClientRect();
+  if (pr.right > window.innerWidth - 8) {
+    panel.style.left = Math.max(8, window.innerWidth - pr.width - 8) + "px";
+  }
+  mbPanel = panel;
+  mbBtn = btn;
+  btn.classList.add("open");
+}
+
+/** 去掉选区里的 Markdown 标记，得到纯文本 */
+function stripMarkdown(s: string): string {
+  return s
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s{0,3}>\s?/gm, "")
+    .replace(/^\s*[-*+]\s+\[[ xX]\]\s+/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/`{1,3}([^`]*)`{1,3}/g, "$1")
+    .replace(/(\*\*|__|~~|==)(.*?)\1/g, "$2")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/_([^_\n]+)_/g, "$1");
+}
+
+async function copyAsPlainText() {
+  const { from, to } = view.state.selection.main;
+  if (from === to) {
+    toast("先选中一段内容");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(stripMarkdown(view.state.sliceDoc(from, to)));
+    toast("已复制为纯文本");
+  } catch {
+    toast("写入剪贴板失败", "err");
+  }
+}
+
+function clearFormat() {
+  const { from, to } = view.state.selection.main;
+  if (from === to) {
+    toast("先选中一段内容");
+    return;
+  }
+  const plain = stripMarkdown(view.state.sliceDoc(from, to));
+  view.dispatch({
+    changes: { from, to, insert: plain },
+    selection: { anchor: from, head: from + plain.length },
+  });
+  view.focus();
+}
+
+async function pastePlain() {
+  try {
+    const txt = await navigator.clipboard.readText();
+    if (!txt) return;
+    const { from, to } = view.state.selection.main;
+    view.dispatch({
+      changes: { from, to, insert: txt },
+      selection: { anchor: from + txt.length },
+    });
+    view.focus();
+  } catch {
+    toast("读取剪贴板失败", "err");
+  }
+}
+
+async function saveAllTabs() {
+  const dirty = app.tabs.filter((t) => t.dirty);
+  if (!dirty.length) {
+    toast("没有需要保存的修改");
+    return;
+  }
+  for (const t of dirty) {
+    if (app.activeId !== t.id) activate(t.id);
+    await saveTab(false, true);
+  }
+  toast(`已保存 ${dirty.length} 个文件`);
+}
+
+function resetZoom() {
+  settings.fontSize = 16.5;
+  applySettings();
+  persistSettings();
+}
+
+function menuDefs(): MMenu[] {
+  const F = (cmd: string, arg?: any) => () => execToolbar(cmd, arg);
+  return [
+    {
+      label: "文件",
+      items: () => [
+        { label: "新建", key: "Ctrl+N", run: () => newTab() },
+        { label: "打开文件…", key: "Ctrl+O", run: () => void openFileDialog() },
+        { label: "打开文件夹…", key: "Ctrl+Shift+O", run: () => void openFolderDialog() },
+        { sep: true },
+        { label: "保存", key: "Ctrl+S", run: () => void saveTab() },
+        { label: "另存为…", key: "Ctrl+Shift+S", run: () => void saveTab(true) },
+        { label: "保存全部", run: () => void saveAllTabs() },
+        { sep: true },
+        { label: "导出 HTML…", run: () => void exportHtml() },
+        { label: "打印 / 导出 PDF…", run: () => void exportPdf() },
+        { sep: true },
+        {
+          label: "在资源管理器中显示",
+          run: () => {
+            const p = activeTab()?.path;
+            if (p) revealInExplorer(p);
+          },
+        },
+        { label: "重新加载当前文件", run: () => void reloadCurrent() },
+        { sep: true },
+        { label: "关闭标签", key: "Ctrl+W", run: () => app.activeId && void closeTab(app.activeId) },
+        { label: "退出", run: () => void doClose() },
+      ],
+    },
+    {
+      label: "编辑",
+      items: () => [
+        { label: "撤销", key: "Ctrl+Z", run: () => undo(view) },
+        { label: "重做", key: "Ctrl+Y", run: () => redo(view) },
+        { sep: true },
+        { label: "剪切", key: "Ctrl+X", run: () => document.execCommand("cut") },
+        { label: "复制", key: "Ctrl+C", run: () => document.execCommand("copy") },
+        { label: "粘贴", key: "Ctrl+V", run: () => void pastePlain() },
+        { label: "复制为纯文本", run: () => void copyAsPlainText() },
+        { sep: true },
+        { label: "上移该行", key: "Alt+↑", run: () => moveLineUp(view) },
+        { label: "下移该行", key: "Alt+↓", run: () => moveLineDown(view) },
+        { sep: true },
+        { label: "查找", key: "Ctrl+F", run: () => openSearchPanel(view) },
+        { label: "查找并替换", key: "Ctrl+H", run: () => openSearchPanel(view) },
+        { sep: true },
+        {
+          label: "全选",
+          key: "Ctrl+A",
+          run: () => {
+            view.focus();
+            view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+          },
+        },
+      ],
+    },
+    {
+      label: "格式",
+      items: () => [
+        { label: "正文", key: "Ctrl+0", run: F("heading", 0) },
+        { label: "标题 1", key: "Ctrl+1", run: F("heading", 1) },
+        { label: "标题 2", key: "Ctrl+2", run: F("heading", 2) },
+        { label: "标题 3", key: "Ctrl+3", run: F("heading", 3) },
+        { label: "标题 4", key: "Ctrl+4", run: F("heading", 4) },
+        { label: "标题 5", key: "Ctrl+5", run: F("heading", 5) },
+        { label: "标题 6", key: "Ctrl+6", run: F("heading", 6) },
+        { sep: true },
+        { label: "加粗", key: "Ctrl+B", run: F("bold") },
+        { label: "斜体", key: "Ctrl+I", run: F("italic") },
+        { label: "删除线", key: "Ctrl+U", run: F("strike") },
+        { label: "行内代码", key: "Ctrl+E", run: F("code") },
+        { label: "高亮", key: "Ctrl+Shift+H", run: F("highlight") },
+        { sep: true },
+        { label: "引用", key: "Ctrl+Shift+Q", run: F("quote") },
+        { label: "无序列表", run: F("ul") },
+        { label: "有序列表", run: F("ol") },
+        { label: "任务清单", run: F("task") },
+        { sep: true },
+        { label: "表格", key: "Ctrl+T", run: F("table") },
+        { label: "代码块", key: "Ctrl+Shift+K", run: F("codeblock") },
+        { label: "公式", run: F("math") },
+        { label: "分隔线", run: F("hr") },
+        { label: "目录", run: F("toc") },
+        { sep: true },
+        { label: "链接", key: "Ctrl+K", run: F("link") },
+        { label: "图片", run: F("image") },
+        { sep: true },
+        { label: "清除格式", run: clearFormat },
+      ],
+    },
+    {
+      label: "视图",
+      items: () => [
+        {
+          label: "侧边栏",
+          key: "Ctrl+\\",
+          checked: () => settings.sidebar,
+          run: () => toggleSetting("sidebar"),
+        },
+        { label: "文件列表", checked: () => $(".sb-tab.active")?.getAttribute("data-panel") === "files", run: () => switchPanel("files") },
+        { label: "大纲", checked: () => $(".sb-tab.active")?.getAttribute("data-panel") === "outline", run: () => switchPanel("outline") },
+        { label: "搜索", checked: () => $(".sb-tab.active")?.getAttribute("data-panel") === "search", run: () => switchPanel("search") },
+        { sep: true },
+        { label: "源码模式", key: "Ctrl+/", checked: () => settings.sourceMode, run: toggleSource },
+        { label: "专注模式", checked: () => settings.focusMode, run: () => toggleSetting("focusMode") },
+        { label: "打字机模式", checked: () => settings.typewriter, run: () => toggleSetting("typewriter") },
+        { label: "显示行号", checked: () => settings.lineNumbers, run: () => toggleSetting("lineNumbers") },
+        { sep: true },
+        { label: "放大", key: "Ctrl+=", run: () => zoomBy(0.5) },
+        { label: "缩小", key: "Ctrl+-", run: () => zoomBy(-0.5) },
+        { label: "实际大小", key: "Ctrl+Shift+0", run: resetZoom },
+        { label: "全屏", key: "F11", run: () => void toggleFullscreen() },
+        { sep: true },
+        ...THEMES.map((t) => ({
+          label: t.name,
+          checked: () => settings.theme === t.id,
+          run: () => setTheme(t.id),
+        })),
+        { sep: true },
+        { label: "设置…", key: "Ctrl+,", run: () => openSettings() },
+        { label: "命令面板…", key: "Ctrl+Shift+P", run: () => openPalette() },
+      ],
+    },
+    {
+      label: "帮助",
+      items: () => [
+        {
+          label: "快捷键一览",
+          run: () =>
+            void alertBox({
+              title: "快捷键",
+              message:
+                "新建 Ctrl+N　　打开 Ctrl+O　　保存 Ctrl+S\n" +
+                "加粗 Ctrl+B　　斜体 Ctrl+I　　删除线 Ctrl+U\n" +
+                "行内代码 Ctrl+E　　高亮 Ctrl+Shift+H\n" +
+                "链接 Ctrl+K　　表格 Ctrl+T　　代码块 Ctrl+Shift+K\n" +
+                "标题 1–6 Ctrl+1…6　　正文 Ctrl+0\n" +
+                "查找 Ctrl+F　　替换 Ctrl+H　　跳转行 Ctrl+G\n" +
+                "源码模式 Ctrl+/　　侧边栏 Ctrl+\\　　设置 Ctrl+,\n" +
+                "命令面板 Ctrl+Shift+P　　全屏 F11",
+            }),
+        },
+        {
+          label: "GitHub 仓库",
+          run: async () => {
+            if (!IS_TAURI) return;
+            const { invoke } = await import("@tauri-apps/api/core");
+            await invoke("open_path", { path: "https://github.com/GHaoyun/Markprose" });
+          },
+        },
+        { sep: true },
+        { label: "关于 Markprose", run: () => void alertBox({ title: "关于 Markprose", message: "v1.0.0" }) },
+      ],
+    },
+  ];
+}
+
+function buildMenuBar() {
+  const root = $("#menubar");
+  if (!root) return;
+  root.innerHTML = "";
+  for (const m of menuDefs()) {
+    const btn = h("button", { class: "mb-item", text: m.label });
+    btn.addEventListener("click", () => showMenuBar(btn, m));
+    btn.addEventListener("mouseenter", () => {
+      if (mbPanel && mbBtn !== btn) showMenuBar(btn, m);
+    });
+    root.appendChild(btn);
+  }
+  document.addEventListener("mousedown", (e) => {
+    if (!mbPanel) return;
+    if ((e.target as HTMLElement).closest("#menubar")) return;
+    closeMenuBar();
+  });
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key === "Escape" && mbPanel) {
+        e.preventDefault();
+        closeMenuBar();
+      }
+    },
+    true
+  );
+}
+
 /* ================= 启动 ================= */
 async function boot() {
   await loadSettings();
@@ -1821,9 +2183,13 @@ async function boot() {
   buildBubble();
   bindShortcuts();
   await bindWindow();
+  buildMenuBar();
 
   // 启动时把当前侧栏面板渲染一次，否则「文件」底下是空的，切一次面板才出来
   switchPanel(($(".sb-tab.active") as HTMLElement | null)?.dataset.panel || "files");
+
+  // 注册进系统「打开方式」列表（每次启动刷新一次路径，免安装版换了位置也能对上）
+  if (IS_TAURI) void registerFileAssoc().catch(() => {});
 
   // 把 .md 拖到 exe / 快捷方式图标上启动时，直接打开那个文件
   if (IS_TAURI) {

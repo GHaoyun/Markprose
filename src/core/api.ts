@@ -59,6 +59,15 @@ export const listFonts = () => invoke<string[]>("list_fonts");
 /** 启动时命令行带进来的文件（拖到 exe 图标上打开） */
 export const startupFiles = () => invoke<string[]>("startup_files");
 
+/** 把当前程序注册进「打开方式」列表 */
+export const registerFileAssoc = () => invoke<void>("register_file_assoc");
+
+/** 当前是不是 .md 的默认打开程序 */
+export const isDefaultApp = () => invoke<boolean>("is_default_app");
+
+/** 尝试设为默认打开程序，返回 set / blocked */
+export const setDefaultApp = () => invoke<string>("set_default_app");
+
 export const searchInFolder = (root: string, query: string, limit = 300) =>
   invoke<SearchHit[]>("search_in_folder", { root, query, limit });
 
@@ -389,6 +398,12 @@ async function mockInvoke<T>(cmd: string, args: any): Promise<T> {
       return out("/demo");
     case "startup_files":
       return out([]);
+    case "register_file_assoc":
+      return out(undefined);
+    case "is_default_app":
+      return out(false);
+    case "set_default_app":
+      return out("blocked");
     case "list_fonts":
       return out([
         "Georgia",
