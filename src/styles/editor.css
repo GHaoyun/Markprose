@@ -214,6 +214,11 @@
   color: var(--text-faint);
   font-size: 0.86em;
 }
+.cm-underline {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
 .cm-mark {
   background: color-mix(in srgb, #f2c14e 42%, transparent);
   border-radius: 4px;

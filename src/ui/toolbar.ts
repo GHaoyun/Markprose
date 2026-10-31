@@ -81,6 +81,11 @@ export function buildToolbar(root: HTMLElement, exec: (cmd: string, arg?: any) =
   root.appendChild(btn("bold", "", "加粗 (Ctrl+B)", { html: "<b>B</b>" }));
   root.appendChild(btn("italic", "", "斜体 (Ctrl+I)", { html: "<i>I</i>" }));
   root.appendChild(btn("strike", "", "删除线 (Ctrl+U)", { html: "<s>S</s>" }));
+  root.appendChild(
+    btn("underline", "", "下划线 (Ctrl+Shift+U)", {
+      html: '<span style="text-decoration:underline;text-underline-offset:2px;font-size:12px;font-weight:600">U</span>',
+    })
+  );
   root.appendChild(btn("code", "", "行内代码 (Ctrl+E)", { html: '<span style="font-family:var(--font-mono);font-size:11px">&lt;/&gt;</span>' }));
   root.appendChild(
     btn("highlight", "", "高亮 (Ctrl+Shift+H)", {

@@ -1121,6 +1121,19 @@ export function buildDecorations(view: EditorView): DecorationSet {
       }
     }
 
+    if (text.includes("++")) {
+      const re = /\+\+(?!\s)([^+\n]+?)(?<!\s)\+\+/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text))) {
+        const s = line.from + m.index;
+        const e = s + m[0].length;
+        if (overlaps(inlineCode, s, e) || overlaps(replaced, s, e) || reveal(s, e)) continue;
+        decos.push(Decoration.mark({ class: "cm-underline" }).range(s + 2, e - 2));
+        hide(s, s + 2);
+        hide(e - 2, e);
+      }
+    }
+
     if (text.includes("==")) {
       const re = /==(?!\s)([^=\n]+?)(?<!\s)==/g;
       let m: RegExpExecArray | null;

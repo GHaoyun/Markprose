@@ -1285,7 +1285,8 @@ function bindShortcuts() {
           break;
         case "u":
           e.preventDefault();
-          cmdStrike(view);
+          if (e.shiftKey) cmdUnderline(view);
+          else cmdStrike(view);
           break;
         case "e":
           e.preventDefault();
@@ -1486,6 +1487,9 @@ function execToolbar(cmd: string, arg?: any) {
       break;
     case "strike":
       cmdStrike(view);
+      break;
+    case "underline":
+      cmdUnderline(view);
       break;
     case "code":
       cmdCode(view);
@@ -1763,9 +1767,9 @@ function showEditorMenu(x: number, y: number) {
   menu.appendChild(sep());
 
   menu.append(
-    row(IC.mark, "高亮", "", "#f0c33c", () => cmdMark(view)),
-    row(IC.under, "下划线", "", "#e5484d", () => cmdUnderline(view)),
-    row(IC.strike, "删除线", "", "#e5484d", () => cmdStrike(view)),
+    row(IC.mark, "高亮", "", "", () => cmdMark(view)),
+    row(IC.under, "下划线", "", "", () => cmdUnderline(view)),
+    row(IC.strike, "删除线", "", "", () => cmdStrike(view)),
     row(IC.eraser, "清除格式", "", "", clearFormat)
   );
   menu.appendChild(sep());

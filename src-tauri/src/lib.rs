@@ -451,7 +451,23 @@ fn register_file_assoc(app: tauri::AppHandle) -> Result<(), String> {
         }
         let (icon, _) = appkey.create_subkey("DefaultIcon").map_err(err)?;
         let ico = file_icon_path(&app)?;
-        icon.set_value("", &format!("{},0", ico.display())).map_err(err)?;
+        let ico_val = format!("{},0", ico.display());
+        icon.set_value("", &ico_val).map_err(err)?;
+
+        // .md 实际用的是 ProgID 上的图标，这里必须同步写，否则文件图标不会变
+        let (prog, _) = hkcu
+            .create_subkey(r"Software\Classes\Markprose.md")
+            .map_err(err)?;
+        prog.set_value("", &"Markprose Markdown 文档").map_err(err)?;
+        let (pshell, _) = prog.create_subkey(r"shell\open\command").map_err(err)?;
+        pshell.set_value("", &cmd).map_err(err)?;
+        let (picon, _) = prog.create_subkey("DefaultIcon").map_err(err)?;
+        picon.set_value("", &ico_val).map_err(err)?;
+
+        // 让资源管理器丢掉旧的图标缓存
+        let _ = std::process::Command::new("ie4uinit.exe")
+            .arg("-show")
+            .spawn();
 
         // 注册 Capabilities，系统「默认应用」里才会出现 Markprose 自己的页面
         let (caps, _) = hkcu
