@@ -1,5 +1,6 @@
 import { h } from "./dom";
 import { pickFolder } from "../core/api";
+import katex from "katex";
 
 interface Base {
   title: string;
@@ -309,6 +310,124 @@ export function saveChangesBox(opts: { name: string }): Promise<"save" | "discar
         e.preventDefault();
         e.stopPropagation();
         done("cancel");
+      }
+    };
+    document.addEventListener("keydown", onKey, true);
+  });
+}
+
+/* ================= 公式插入 ================= */
+export interface MathResult {
+  tex: string;
+  block: boolean;
+}
+
+export function mathBox(initial = "", startBlock = true): Promise<MathResult | null> {
+  return new Promise((resolve) => {
+    const el = host();
+    el.innerHTML = "";
+    let block = startBlock;
+
+    const finish = (v: MathResult | null) => {
+      document.removeEventListener("keydown", onKey, true);
+      close();
+      resolve(v);
+    };
+
+    const ta = h("textarea", {
+      class: "math-input",
+      spellcheck: "false",
+      placeholder: "输入 LaTeX，例如 \\frac{a}{b}",
+    }) as HTMLTextAreaElement;
+    ta.value = initial;
+
+    const preview = h("div", { class: "math-preview empty", text: "预览" });
+
+    const autoGrow = () => {
+      ta.style.height = "auto";
+      ta.style.height = Math.min(ta.scrollHeight, 260) + "px";
+    };
+
+    const render = () => {
+      autoGrow();
+      const tex = ta.value.trim();
+      if (!tex) {
+        preview.className = "math-preview empty";
+        preview.textContent = "预览";
+        return;
+      }
+      try {
+        preview.innerHTML = katex.renderToString(tex, {
+          displayMode: block,
+          throwOnError: false,
+          strict: false,
+        });
+        preview.className = "math-preview";
+      } catch (err: any) {
+        preview.className = "math-preview err";
+        preview.textContent = err?.message || "公式有误";
+      }
+    };
+
+    const setMode = (b: boolean) => {
+      block = b;
+      segIn.classList.toggle("active", !b);
+      segBlk.classList.toggle("active", b);
+      render();
+    };
+    const segIn = h("button", {
+      class: "math-seg-btn" + (startBlock ? "" : " active"),
+      text: "行内",
+      onclick: () => setMode(false),
+    });
+    const segBlk = h("button", {
+      class: "math-seg-btn" + (startBlock ? " active" : ""),
+      text: "块级",
+      onclick: () => setMode(true),
+    });
+
+    const insert = () => finish({ tex: ta.value.trim(), block });
+
+    const box = h(
+      "div",
+      { class: "math-dlg", onmousedown: (e: MouseEvent) => e.stopPropagation() },
+      h(
+        "div",
+        { class: "math-head" },
+        h("div", { class: "math-title", text: "公式" }),
+        h("button", { class: "math-close", text: "×", onclick: () => finish(null) })
+      ),
+      ta,
+      preview,
+      h(
+        "div",
+        { class: "math-foot" },
+        h("div", { class: "math-seg" }, segIn, segBlk),
+        h("div", { class: "math-spacer" }),
+        h("button", { class: "dlg-btn", text: "取消", onclick: () => finish(null) }),
+        h("button", { class: "dlg-btn primary", text: "插入", onclick: insert })
+      )
+    );
+
+    el.appendChild(box);
+    el.classList.add("show");
+    el.onmousedown = (e) => {
+      if (e.target === el) finish(null);
+    };
+
+    ta.addEventListener("input", render);
+    render();
+    setTimeout(() => ta.focus(), 30);
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        finish(null);
+      } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        e.stopPropagation();
+        insert();
       }
     };
     document.addEventListener("keydown", onKey, true);

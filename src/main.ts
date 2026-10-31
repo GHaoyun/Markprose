@@ -53,7 +53,6 @@ import {
 } from "./core/settings";
 import {
   CODE_SNIPPET,
-  MATH_SNIPPET,
   MERMAID_SNIPPET,
   TABLE_SNIPPET,
   cmdBold,
@@ -78,7 +77,7 @@ import {
   sourceComp,
 } from "./editor/setup";
 import { buildToolbar, syncToolbar, type ToolbarState } from "./ui/toolbar";
-import { alertBox, choiceBox, confirmBox, folderSetupBox, promptBox, saveChangesBox } from "./ui/dialog";
+import { alertBox, choiceBox, confirmBox, folderSetupBox, mathBox, promptBox, saveChangesBox } from "./ui/dialog";
 import { closeTablePanel } from "./ui/tablePanel";
 import { livePreview, refreshEffect } from "./editor/livepreview";
 import { docCtx } from "./editor/ctx";
@@ -651,7 +650,7 @@ function commands(): Cmd[] {
     { id: "replace", label: "查找并替换", hint: "Ctrl H", run: () => openSearchPanel(view) },
     { id: "table", label: "插入表格", hint: "Ctrl T", run: () => insertSnippet(view, TABLE_SNIPPET) },
     { id: "code", label: "插入代码块", hint: "Ctrl Shift K", run: () => insertSnippet(view, CODE_SNIPPET) },
-    { id: "math", label: "插入块级公式", run: () => insertSnippet(view, MATH_SNIPPET) },
+    { id: "math", label: "插入公式", run: () => void insertMathDialog() },
     { id: "mermaid", label: "插入流程图", run: () => insertSnippet(view, MERMAID_SNIPPET) },
     { id: "hr", label: "插入分隔线", run: () => insertSnippet(view, "\n---\n") },
     { id: "html", label: "导出 HTML…", run: () => void exportHtml() },
@@ -1304,7 +1303,7 @@ function bindShortcuts() {
         case "m":
           if (e.shiftKey) {
             e.preventDefault();
-            insertSnippet(view, MATH_SNIPPET);
+            void insertMathDialog();
           }
           break;
         case "/":
@@ -1519,7 +1518,7 @@ function execToolbar(cmd: string, arg?: any) {
       cmdCodeBlock(view);
       break;
     case "math":
-      insertSnippet(view, MATH_SNIPPET);
+      void insertMathDialog();
       break;
     case "hr":
       cmdHr(view);
@@ -1822,8 +1821,8 @@ function showEditorMenu(x: number, y: number) {
       ["代码块", "Ctrl+Shift+K", () => cmdCodeBlock(view)],
       ["链接", "Ctrl+K", () => void insertLink()],
       ["图片", "", () => void insertImageFromDialog()],
-      ["行内公式", "", () => cmdMath(view)],
-      ["块级公式", "Ctrl+Shift+M", () => insertSnippet(view, MATH_SNIPPET)],
+      ["行内公式", "", () => void insertMathDialog(false)],
+      ["块级公式", "Ctrl+Shift+M", () => void insertMathDialog()],
       ["分隔线", "", () => cmdHr(view)],
       ["目录 [TOC]", "", () => cmdToc(view)],
     ]),
@@ -1851,8 +1850,7 @@ function showEditorMenu(x: number, y: number) {
   }, 0);
 }
 
-/* ================= 菜单栏 ================= */
-interface MItem {
+/* ================= 菜单栏 ================= */interface MItem {
   label?: string;
   key?: string;
   sep?: boolean;
@@ -2050,6 +2048,33 @@ async function pastePlain() {
   } catch {
     toast("读取剪贴板失败", "err");
   }
+}
+
+async function insertMathDialog(block = true) {
+  const raw = view.state
+    .sliceDoc(view.state.selection.main.from, view.state.selection.main.to)
+    .trim();
+  let tex = raw;
+  let mode = block;
+  // 选中的已经是公式时，去掉外层标记并沿用它的形式
+  const bm = /^\$\$([\s\S]*?)\$\$$/.exec(raw);
+  const im = /^\$([^$\n]+?)\$$/.exec(raw);
+  if (bm) {
+    tex = bm[1].trim();
+    mode = true;
+  } else if (im) {
+    tex = im[1].trim();
+    mode = false;
+  }
+  const res = await mathBox(tex, mode);
+  if (!res || !res.tex) return;
+  const snippet = res.block ? `\n$$\n${res.tex}\n$$\n` : `$${res.tex}$`;
+  const { from, to } = view.state.selection.main;
+  view.dispatch({
+    changes: { from, to, insert: snippet },
+    selection: { anchor: from + snippet.length },
+  });
+  view.focus();
 }
 
 async function saveAllTabs() {
