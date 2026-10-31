@@ -1,5 +1,33 @@
 # 更新日志 / Changelog
 
+## 1.2.0 — 2026-10-31
+
+### 中文
+
+**新增**
+
+- 会话恢复：下次打开软件时，上次没关掉的标签会自动重新打开，并停在当时正在看的那一个。文件被删掉或移走的会自动跳过，不会报错。
+- 标签栏右侧常驻「+」按钮，标签多到需要横向滚动时也钉在右边。
+
+**改进**
+
+- 欢迎页的显示状态改由「当前有没有打开的标签」统一决定，不再由各个入口手工开关，避免状态打架。
+- 「关于」一栏只保留版本号。
+
+### English
+
+**Added**
+
+- Session restore: tabs left open last time are reopened on launch, with the previously active one focused. Files that have been deleted or moved are skipped silently.
+- A persistent "+" button at the right end of the tab bar, pinned even when tabs overflow and scroll.
+
+**Improved**
+
+- Welcome screen visibility is now derived from the tab count instead of being toggled by hand in several places.
+- The About row shows the version number only.
+
+---
+
 ## 1.1.0 — 2026-10-31
 
 ### 中文

@@ -489,8 +489,28 @@ svg {
 #tabs::-webkit-scrollbar {
   display: none;
 }
-#tabs:empty {
-  display: none;
+.tab-add {
+  flex: none;
+  position: sticky;
+  right: 0;
+  align-self: center;
+  width: 26px;
+  height: 24px;
+  margin: 0 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  transition: var(--t-ui);
+}
+.tab-add:hover {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 .tab {
   display: flex;

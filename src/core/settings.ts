@@ -20,6 +20,8 @@ export interface Settings {
   sourceMode: boolean;
   sidebar: boolean;
   lastFolder: string | null;
+  sessionTabs: string[];
+  sessionActive: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -39,6 +41,8 @@ export const DEFAULT_SETTINGS: Settings = {
   sourceMode: false,
   sidebar: true,
   lastFolder: null,
+  sessionTabs: [],
+  sessionActive: null,
 };
 
 export const THEMES: { id: string; name: string; sw: string[] }[] = [

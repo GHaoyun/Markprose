@@ -182,6 +182,19 @@ function renderTabs() {
     );
     host.appendChild(el);
   }
+  // 常驻的新建按钮：标签多到横向滚动时也钉在右边
+  host.appendChild(
+    h("button", {
+      class: "tab-add",
+      title: "新建文档 (Ctrl+N)",
+      text: "+",
+      onmousedown: (e: MouseEvent) => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        newTab();
+      },
+    })
+  );
 }
 
 const refreshTabs = renderTabs;
@@ -194,8 +207,18 @@ function refreshTabDirty() {
   if (el) el.classList.toggle("dirty", t.dirty);
 }
 
+/** 欢迎页只由「有没有打开的标签」决定，避免各处手工开关导致状态打架 */
+function syncWelcome() {
+  const el = $("#welcome");
+  if (!el) return;
+  el.classList.toggle("hidden", app.tabs.length > 0);
+}
+
 function activate(id: string) {
-  if (app.activeId === id) return;
+  if (app.activeId === id) {
+    syncWelcome();
+    return;
+  }
   syncCurrent();
   app.activeId = id;
   const t = activeTab();
@@ -204,7 +227,7 @@ function activate(id: string) {
   docCtx.dir = t.path ? dirname(t.path) : "";
   view.setState(t.state);
   view.focus();
-  $("#welcome")!.classList.add("hidden");
+  syncWelcome();
   const host = $("#editor-host");
   host.classList.remove("fade-in");
   void host.offsetWidth;
@@ -215,6 +238,7 @@ function activate(id: string) {
   renderTree();
   updateTitlebar();
   setTimeout(syncToolbarNow, 30);
+  saveSession();
 }
 
 function newTab(content = "", path: string | null = null) {
@@ -233,7 +257,7 @@ function newTab(content = "", path: string | null = null) {
   docCtx.dir = path ? dirname(path) : "";
   view.setState(t.state);
   view.focus();
-  $("#welcome")!.classList.add("hidden");
+  syncWelcome();
   const host = $("#editor-host");
   host.classList.remove("doc-in");
   void host.offsetWidth;
@@ -242,20 +266,66 @@ function newTab(content = "", path: string | null = null) {
   refreshStatus();
   refreshOutline();
   updateTitlebar();
+  saveSession();
   return t;
 }
 
-async function openPath(path: string) {
+async function openPath(path: string, silent = false) {
   const exist = app.tabs.find((t) => t.path && norm(t.path) === norm(path));
   if (exist) return activate(exist.id);
   try {
     const r = await readText(path);
     const t = newTab(r.content, path);
     t.savedAt = r.mtime;
-    toast(`已打开 ${basename(path)}`);
+    if (!silent) toast(`已打开 ${basename(path)}`);
   } catch (e: any) {
-    toast("打开失败：" + (e?.message || e), "err");
+    if (!silent) toast("打开失败：" + (e?.message || e), "err");
   }
+}
+
+/* ---------- 会话恢复：下次打开软件，标签还在 ---------- */
+let restoringSession = false;
+
+function saveSession() {
+  if (restoringSession) return;
+  const paths = app.tabs.filter((t) => t.path).map((t) => t.path as string);
+  const act = app.tabs.find((t) => t.id === app.activeId);
+  // 没变化就不写盘
+  if (
+    paths.length === settings.sessionTabs.length &&
+    paths.every((p, i) => p === settings.sessionTabs[i]) &&
+    (act?.path || null) === settings.sessionActive
+  ) {
+    return;
+  }
+  settings.sessionTabs = paths;
+  settings.sessionActive = act?.path || null;
+  persistSettings();
+}
+
+async function restoreSession() {
+  const paths = (settings.sessionTabs || []).filter(Boolean);
+  if (!paths.length) return;
+  restoringSession = true;
+  try {
+    for (const p of paths) {
+      try {
+        await openPath(p, true);
+      } catch {}
+    }
+    const act = settings.sessionActive;
+    if (act) {
+      const t = app.tabs.find((x) => x.path && norm(x.path) === norm(act));
+      if (t) activate(t.id);
+    }
+    for (const t of app.tabs) t.dirty = false;
+    renderTabs();
+    updateTitlebar();
+  } finally {
+    restoringSession = false;
+  }
+  // 有文件已经被删掉的话，把失效路径从会话里清掉
+  saveSession();
 }
 
 async function closeTab(id: string) {
@@ -280,7 +350,7 @@ async function closeTab(id: string) {
     } else {
       app.activeId = null;
       view.setState(createState("", null));
-      $("#welcome")!.classList.remove("hidden");
+      syncWelcome();
       renderTabs();
       refreshStatus();
       refreshOutline();
@@ -289,6 +359,7 @@ async function closeTab(id: string) {
   } else {
     renderTabs();
   }
+  saveSession();
 }
 
 /* ================= 保存 ================= */
@@ -325,6 +396,7 @@ async function saveTab(saveAs = false, silent = false) {
     renderTabs();
     updateTitlebar();
     refreshOutline();
+    saveSession();
     if (!silent) toast("已保存 " + basename(path));
     if (app.workspace && norm(path).startsWith(norm(app.workspace))) void reloadTree();
     return true;
@@ -2475,8 +2547,13 @@ async function boot() {
     } catch {}
   }
 
-  // 欢迎页
-  $("#welcome")!.classList.remove("hidden");
+  // 恢复上次打开的标签
+  try {
+    await restoreSession();
+  } catch {}
+
+  // 欢迎页：按当前是否已有标签决定，避免把刚打开的文件盖住
+  syncWelcome();
   refreshStatus();
   renderTabs();
 
