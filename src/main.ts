@@ -378,7 +378,7 @@ function refreshOutline() {
   }
   host.innerHTML = "";
   if (!items.length) {
-    host.innerHTML = '<div class="ol-empty">这篇文档还没有标题<br />用 # 开始写第一节</div>';
+    host.innerHTML = '<div class="ol-empty">此文档暂无大纲</div>';
     return;
   }
   for (const it of items) {
@@ -431,7 +431,7 @@ function renderTree() {
   host.innerHTML = "";
   if (!app.tree) {
     host.innerHTML =
-      '<div class="tree-empty">还没有打开文件夹<br /><br />点上面的「打开文件夹」<br />或者把文件拖进窗口</div>';
+      '<div class="tree-empty">尚未打开文件夹</div>';
     return;
   }
   const activePath = activeTab()?.path ? norm(activeTab()!.path!) : null;
@@ -532,7 +532,7 @@ function renderTree() {
   if (root.children?.length) {
     for (const c of root.children) host.appendChild(renderNode(c, 0));
   } else {
-    host.innerHTML = '<div class="tree-empty">这个文件夹里还没有文件</div>';
+    host.innerHTML = '<div class="tree-empty">文件夹为空</div>';
   }
 }
 
@@ -554,7 +554,7 @@ const runSearch = debounce(async (q: string) => {
     return;
   }
   if (!app.workspace) {
-    host.innerHTML = '<div class="ol-empty">先打开一个文件夹</div>';
+    host.innerHTML = '<div class="ol-empty">请先打开文件夹</div>';
     return;
   }
   host.innerHTML = '<div class="ol-empty">搜索中…</div>';
@@ -1821,6 +1821,9 @@ async function boot() {
   buildBubble();
   bindShortcuts();
   await bindWindow();
+
+  // 启动时把当前侧栏面板渲染一次，否则「文件」底下是空的，切一次面板才出来
+  switchPanel(($(".sb-tab.active") as HTMLElement | null)?.dataset.panel || "files");
 
   // 把 .md 拖到 exe / 快捷方式图标上启动时，直接打开那个文件
   if (IS_TAURI) {
