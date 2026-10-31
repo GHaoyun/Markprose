@@ -225,6 +225,29 @@
   padding: 0.05em 0.15em;
   color: inherit;
 }
+.cm-kbd {
+  font-family: var(--font-mono);
+  font-size: 0.84em;
+  padding: 0.1em 0.38em;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--bg-inset);
+  color: var(--text-dim);
+}
+.cm-sup,
+.cm-sub {
+  font-size: 0.74em;
+  line-height: 0;
+}
+/* Setext 标题下面的 === / --- 行：收起占位 */
+.cm-setext-mark {
+  height: 0;
+  line-height: 0;
+  font-size: 0;
+  padding: 0;
+  overflow: hidden;
+}
 html[data-theme="ink"] .cm-mark,
 html[data-theme="midnight"] .cm-mark {
   background: color-mix(in srgb, #f2c14e 26%, transparent);

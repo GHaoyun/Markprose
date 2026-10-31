@@ -138,12 +138,13 @@ class ImageWidget extends WidgetType {
     readonly src: string,
     readonly alt: string,
     readonly from: number,
-    readonly to: number
+    readonly to: number,
+    readonly width: number = 0
   ) {
     super();
   }
   eq(o: ImageWidget) {
-    return o.src === this.src && o.alt === this.alt;
+    return o.src === this.src && o.alt === this.alt && o.width === this.width;
   }
   toDOM(view: EditorView) {
     const wrap = document.createElement("span");
@@ -157,6 +158,10 @@ class ImageWidget extends WidgetType {
       const img = document.createElement("img");
       img.src = url;
       img.alt = this.alt;
+      if (this.width > 0) {
+        img.style.width = `${this.width}px`;
+        img.style.height = "auto";
+      }
       wrap.classList.remove("loading");
       wrap.textContent = "";
       wrap.appendChild(img);
@@ -580,6 +585,34 @@ function resolveSrc(src: string): string {
   return norm(docCtx.dir + "/" + s.replace(/^\.\//, ""));
 }
 
+/** 从 HTML 属性串里取一个属性值 */
+function attrOf(attrs: string, name: string): string {
+  const m = new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, "i").exec(attrs);
+  return m ? (m[2] ?? m[3] ?? m[4] ?? "") : "";
+}
+
+/** 只放行颜色类样式，其余一律丢弃 */
+function safeInlineStyle(style: string): string {
+  const out: string[] = [];
+  const re = /(?:^|;)\s*(background-color|color)\s*:\s*([^;]+)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(style))) {
+    const v = m[2].trim();
+    if (/^(#[0-9a-f]{3,8}|[a-z]+|rgba?\([^)]*\)|hsla?\([^)]*\))$/i.test(v)) {
+      out.push(`${m[1].toLowerCase()}: ${v}`);
+    }
+  }
+  return out.join("; ");
+}
+
+/** Markdown 图片地址后面可以跟 "标题"，解析时要去掉 */
+function splitImgSrc(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\s+(?:"[^"]*"|'[^']*'|\([^)]*\))\s*$/, "")
+    .trim();
+}
+
 /* ============================================================
    块级 + 行级装饰：必须由 StateField 提供
    （CodeMirror 6：block 装饰不能来自 ViewPlugin，行装饰也属 block 类）
@@ -772,6 +805,53 @@ function scanDoc(state: EditorState): BlockState {
       continue;
     }
 
+    /* --- 四空格缩进代码块 --- */
+    const prevLine = n > startLine ? doc.line(n - 1) : null;
+    const prevBlank = !prevLine || prevLine.text.trim() === "";
+    const prevIsList = !!prevLine && /^\s*([-*+]|\d{1,9}[.)])\s/.test(prevLine.text);
+    if (/^( {4}|\t)/.test(text) && prevBlank && !prevIsList) {
+      let end = n;
+      while (end + 1 <= doc.lines) {
+        const nt = doc.line(end + 1).text;
+        if (/^( {4}|\t)/.test(nt) || nt.trim() === "") end++;
+        else break;
+      }
+      while (end > n && doc.line(end).text.trim() === "") end--;
+      const endLine = doc.line(end);
+      codeRanges.push([line.from, endLine.to]);
+      for (let k = n; k <= end; k++) decos.push(lineDeco("cm-code-line", doc.line(k).from));
+      decos.push(lineDeco("cm-code-first", line.from));
+      decos.push(lineDeco("cm-code-last", endLine.from));
+      n = end + 1;
+      continue;
+    }
+
+    /* --- 引用式链接定义 [id]: url --- */
+    if (/^ {0,3}\[[^\]^][^\]]*\]:\s*\S+/.test(text)) {
+      decos.push(lineDeco("cm-footnote-def", line.from));
+      n++;
+      continue;
+    }
+
+    /* --- Setext 标题：下一行是 === 或 --- --- */
+    if (
+      n + 1 <= doc.lines &&
+      t !== "" &&
+      !/^(#{1,6}\s|>|[-*+]\s|\d{1,9}[.)]\s|\||```|~~~|\$\$|<)/.test(t)
+    ) {
+      const under = doc.line(n + 1).text;
+      const sm = /^ {0,3}(=+|-{2,})\s*$/.exec(under);
+      if (sm) {
+        decos.push(lineDeco(sm[1][0] === "=" ? "cm-h1" : "cm-h2", line.from));
+        const ul = doc.line(n + 1);
+        decos.push(lineDeco("cm-setext-mark", ul.from));
+        decos.push(Decoration.replace({}).range(ul.from, ul.to));
+        ranges.push([ul.from, ul.to]);
+        n += 2;
+        continue;
+      }
+    }
+
     /* --- 标题 --- */
     const hm = /^(\s{0,3})(#{1,6})(\s|$)/.exec(text);
     if (hm) {
@@ -913,7 +993,7 @@ export function buildDecorations(view: EditorView): DecorationSet {
             replaced.push([from, to]);
             decos.push(
               Decoration.replace({
-                widget: new ImageWidget(resolveSrc(m[2]), m[1], from, to),
+                widget: new ImageWidget(resolveSrc(splitImgSrc(m[2])), m[1], from, to),
               }).range(from, to)
             );
             return false;
@@ -931,10 +1011,24 @@ export function buildDecorations(view: EditorView): DecorationSet {
             hide(labelTo, to);
             return false;
           }
+          // 引用式链接：[文字][id] / [文字][]
+          const ref = /^\[([\s\S]*?)\]\[([^\]]*)\]$/.exec(raw);
+          if (ref && !reveal(from, to)) {
+            const labelFrom = from + 1;
+            const labelTo = labelFrom + ref[1].length;
+            decos.push(Decoration.mark({ class: "cm-link" }).range(labelFrom, labelTo));
+            hide(from, labelFrom);
+            hide(labelTo, to);
+            return false;
+          }
           return true;
         }
         if (name === "Autolink") {
-          if (!reveal(from, to)) decos.push(Decoration.mark({ class: "cm-link" }).range(from, to));
+          if (!reveal(from, to)) {
+            decos.push(Decoration.mark({ class: "cm-link" }).range(from + 1, to - 1));
+            hide(from, from + 1);
+            hide(to - 1, to);
+          }
           return false;
         }
         if (name === "URL") {
@@ -994,24 +1088,30 @@ export function buildDecorations(view: EditorView): DecorationSet {
       continue;
     }
 
-    // 标题 / 引用的语法标记：永远收起（改标题用工具栏下拉或 Ctrl+1..6）
-    const hmk = /^(\s{0,3})(#{1,6})(\s+)/.exec(text);
+    // 先剥掉引用标记，后面的标题 / 列表判断都基于剩下的正文
+    const qmk = /^(\s{0,3}(?:>[ \t]*)+)/.exec(text);
+    const qlen = qmk ? qmk[1].length : 0;
+    if (qlen) hide(line.from, line.from + qlen);
+    const body = text.slice(qlen);
+    const bFrom = line.from + qlen;
+
+    // 标题标记永远收起（改标题用工具栏下拉或 Ctrl+1..6）
+    const hmk = /^(\s{0,3})(#{1,6})(\s+)/.exec(body);
     if (hmk) {
-      hide(
-        line.from + hmk[1].length,
-        line.from + hmk[1].length + hmk[2].length + hmk[3].length
-      );
+      hide(bFrom + hmk[1].length, bFrom + hmk[1].length + hmk[2].length + hmk[3].length);
       continue;
     }
-    const qmk = /^(\s{0,3})(>\s?)/.exec(text);
-    if (qmk) {
-      hide(line.from + qmk[1].length, line.from + qmk[1].length + qmk[2].length);
+
+    // 行尾反斜杠 = 硬换行标记，收起（连续两个则是转义出来的反斜杠本身）
+    const tailBs = /(\\+)$/.exec(text);
+    if (tailBs && tailBs[1].length % 2 === 1) {
+      hide(line.to - 1, line.to);
     }
 
-    const task = /^([ \t]*)([-*+])[ \t]+(\[[ xX]\])[ \t]+/.exec(text);
+    const task = /^([ \t]*)([-*+])[ \t]+(\[[ xX]\])[ \t]+/.exec(body);
     if (task) {
-      const s = line.from + task[1].length;
-      const e = line.from + task[0].length;
+      const s = bFrom + task[1].length;
+      const e = bFrom + task[0].length;
       const checked = /[xX]/.test(task[3]);
       decos.push(Decoration.replace({ widget: new TaskWidget(checked, s, e) }).range(s, e));
       if (checked && e < line.to)
@@ -1019,17 +1119,17 @@ export function buildDecorations(view: EditorView): DecorationSet {
       continue;
     }
 
-    const bullet = /^([ \t]*)([-*+])([ \t]+)/.exec(text);
+    const bullet = /^([ \t]*)([-*+])([ \t]+)/.exec(body);
     if (bullet) {
-      const s = line.from + bullet[1].length;
+      const s = bFrom + bullet[1].length;
       const ch = bullet[2] === "-" ? "•" : bullet[2] === "*" ? "◦" : "▪";
       decos.push(Decoration.replace({ widget: new BulletWidget(ch) }).range(s, s + 1));
       continue;
     }
 
-    const ord = /^([ \t]*)(\d{1,9}[.)])([ \t]+)/.exec(text);
+    const ord = /^([ \t]*)(\d{1,9}[.)])([ \t]+)/.exec(body);
     if (ord) {
-      const s = line.from + ord[1].length;
+      const s = bFrom + ord[1].length;
       decos.push(Decoration.mark({ class: "cm-list-num" }).range(s, s + ord[2].length));
       continue;
     }
@@ -1041,7 +1141,7 @@ export function buildDecorations(view: EditorView): DecorationSet {
     if (overlaps(replaced, line.from, line.to)) continue;
     if (overlaps(codeRanges, line.from, line.to)) continue;
     const text = line.text;
-    if (!/[$=~^:]|\[\^/.test(text)) continue;
+    // 每条规则自带 includes 快检，这里不再统一过滤，避免新语法被前置条件挡住
 
     if (text.includes("~~")) {
       const re = /~~(?!\s)([^~\n]+?)(?<!\s)~~/g;
@@ -1125,22 +1225,110 @@ export function buildDecorations(view: EditorView): DecorationSet {
       }
     }
 
-    if (text.includes("<u>")) {
-      const re = /<u>([^<\n]+?)<\/u>/g;
+    /* 反斜杠转义：只收起反斜杠，保留字符本身 */
+    if (text.includes("\\")) {
+      const re = /\\([\\`*_{}\[\]()#+\-.!|>~$<])/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(text))) {
+        const s = line.from + m.index;
+        if (overlaps(inlineCode, s, s + 2) || overlaps(replaced, s, s + 2)) continue;
+        hide(s, s + 1);
+      }
+    }
+
+    /* 行内 HTML：白名单标签 */
+    if (text.includes("<")) {
+      const TAG_CLASS: Record<string, string> = {
+        u: "cm-underline",
+        ins: "cm-underline",
+        mark: "cm-mark",
+        b: "cm-strong",
+        strong: "cm-strong",
+        i: "cm-em",
+        em: "cm-em",
+        s: "cm-strike",
+        del: "cm-strike",
+        kbd: "cm-kbd",
+        code: "cm-inline-code",
+        sub: "cm-sub",
+        sup: "cm-sup",
+        summary: "cm-strong",
+      };
+      const re = /<(u|ins|mark|b|strong|i|em|s|del|kbd|code|sub|sup|summary)>([^<\n]*?)<\/\1>/g;
       let m: RegExpExecArray | null;
       while ((m = re.exec(text))) {
         const s = line.from + m.index;
         const e = s + m[0].length;
-        if (
-          overlaps(inlineCode, s, e) ||
-          overlaps(replaced, s, e) ||
-          overlaps(hidden, s, e) ||
-          reveal(s, e)
-        )
+        if (overlaps(inlineCode, s, e) || overlaps(replaced, s, e) || overlaps(hidden, s, e) || reveal(s, e))
           continue;
-        decos.push(Decoration.mark({ class: "cm-underline" }).range(s + 3, e - 4));
-        hide(s, s + 3);
-        hide(e - 4, e);
+        const openLen = m[1].length + 2;
+        const closeLen = m[1].length + 3;
+        decos.push(Decoration.mark({ class: TAG_CLASS[m[1]] }).range(s + openLen, e - closeLen));
+        hide(s, s + openLen);
+        hide(e - closeLen, e);
+      }
+
+      // <span style="color:…">文字</span>
+      const sre = /<span\s+style="([^"]*)"\s*>([^<\n]*?)<\/span>/g;
+      while ((m = sre.exec(text))) {
+        const s = line.from + m.index;
+        const e = s + m[0].length;
+        if (overlaps(inlineCode, s, e) || overlaps(replaced, s, e) || overlaps(hidden, s, e) || reveal(s, e))
+          continue;
+        const style = safeInlineStyle(m[1]);
+        if (!style) continue;
+        const openLen = m[0].indexOf(">") + 1;
+        const inner = m[2].length;
+        decos.push(
+          Decoration.mark({ attributes: { style } }).range(s + openLen, s + openLen + inner)
+        );
+        hide(s, s + openLen);
+        hide(s + openLen + inner, e);
+      }
+
+      // <br> / <br/>
+      const bre = /<br\s*\/?>/gi;
+      while ((m = bre.exec(text))) {
+        const s = line.from + m.index;
+        const e = s + m[0].length;
+        if (overlaps(inlineCode, s, e) || overlaps(replaced, s, e)) continue;
+        hide(s, e);
+      }
+
+      // <img src="…" alt="…" width="…">
+      const imre = /<img\s+([^>]*?)\/?>/gi;
+      while ((m = imre.exec(text))) {
+        const s = line.from + m.index;
+        const e = s + m[0].length;
+        if (overlaps(inlineCode, s, e) || overlaps(replaced, s, e) || reveal(s, e)) continue;
+        const src = attrOf(m[1], "src");
+        if (!src) continue;
+        const alt = attrOf(m[1], "alt") || "";
+        const w = parseInt(attrOf(m[1], "width") || "", 10);
+        replaced.push([s, e]);
+        decos.push(
+          Decoration.replace({
+            widget: new ImageWidget(resolveSrc(src), alt, s, e, Number.isFinite(w) ? w : 0),
+          }).range(s, e)
+        );
+      }
+
+      // <!-- 注释 -->
+      const cre = /<!--[\s\S]*?-->/g;
+      while ((m = cre.exec(text))) {
+        const s = line.from + m.index;
+        const e = s + m[0].length;
+        if (overlaps(inlineCode, s, e) || overlaps(replaced, s, e)) continue;
+        hide(s, e);
+      }
+
+      // <details> / </details> 这类块标签，标签本身不显示
+      const dre = /<\/?(?:details|summary)\b[^>]*>/gi;
+      while ((m = dre.exec(text))) {
+        const s = line.from + m.index;
+        const e = s + m[0].length;
+        if (overlaps(inlineCode, s, e) || overlaps(replaced, s, e) || overlaps(hidden, s, e)) continue;
+        hide(s, e);
       }
     }
 
