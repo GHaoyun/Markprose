@@ -79,7 +79,7 @@ import {
 import { buildToolbar, syncToolbar, type ToolbarState } from "./ui/toolbar";
 import { alertBox, choiceBox, confirmBox, folderSetupBox, mathBox, promptBox, saveChangesBox } from "./ui/dialog";
 import { closeTablePanel } from "./ui/tablePanel";
-import { livePreview, refreshEffect } from "./editor/livepreview";
+import { livePreview, mathHooks, refreshEffect } from "./editor/livepreview";
 import { docCtx } from "./editor/ctx";
 import { buildExportHtml } from "./markdown/export";
 
@@ -128,6 +128,7 @@ function mountEditor() {
   };
   view.dom.addEventListener("dragover", (e) => e.preventDefault());
   editorHooks.onContextMenu = (x, y) => showEditorMenu(x, y);
+  mathHooks.onEdit = (tex, block, from, to) => void editMathAt(tex, block, from, to);
 }
 
 function typewriter() {
@@ -2048,6 +2049,28 @@ async function pastePlain() {
   } catch {
     toast("读取剪贴板失败", "err");
   }
+}
+
+async function editMathAt(tex: string, block: boolean, from: number, to: number) {
+  const res = await mathBox(tex, block);
+  if (!res || !res.tex) return;
+  let insert: string;
+  if (res.block === block) {
+    insert = res.block ? `$$\n${res.tex}\n$$` : `$${res.tex}$`;
+  } else if (res.block) {
+    insert = `\n$$\n${res.tex}\n$$\n`;
+  } else {
+    insert = `$${res.tex}$`;
+  }
+  const after = from + insert.length;
+  const newLen = view.state.doc.length - (to - from) + insert.length;
+  // 块级公式：光标停进公式范围会切成源码态，往后挪一位让渲染结果保持可见
+  const anchor = Math.min(newLen, after + (res.block ? 1 : 0));
+  view.dispatch({
+    changes: { from, to, insert },
+    selection: { anchor },
+  });
+  view.focus();
 }
 
 async function insertMathDialog(block = true) {

@@ -499,14 +499,24 @@ html[data-theme="midnight"] .cm-tok-type {
 .cm-math-inline {
   display: inline-block;
   padding: 0 2px;
-  cursor: text;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 120ms var(--ease);
+}
+.cm-math-inline:hover {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
 }
 .cm-math-block {
   display: block;
   padding: 10px 0;
   text-align: center;
   overflow-x: auto;
-  cursor: text;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 120ms var(--ease);
+}
+.cm-math-block:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 .katex {
   font-size: 1.02em;

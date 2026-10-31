@@ -16,6 +16,11 @@ import { closeTablePanel, openTablePanel, type TableModel } from "../ui/tablePan
 
 export const refreshEffect = StateEffect.define<number>();
 
+/** 公式编辑回调，由外层设置（避免与 setup.ts 形成循环依赖） */
+export const mathHooks: {
+  onEdit?: (tex: string, block: boolean, from: number, to: number) => void;
+} = {};
+
 type Span = [number, number];
 
 /* ================= 缓存 ================= */
@@ -192,12 +197,21 @@ class InlineMathWidget extends WidgetType {
   toDOM(view: EditorView) {
     const s = document.createElement("span");
     s.className = "cm-math-inline";
+    s.title = "右键或双击编辑公式";
     s.innerHTML = renderKatex(this.tex, false);
     s.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
       e.preventDefault();
       view.dispatch({ selection: { anchor: this.from, head: this.to } });
       view.focus();
     });
+    const edit = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      mathHooks.onEdit?.(this.tex, false, this.from, this.to);
+    };
+    s.addEventListener("contextmenu", edit);
+    s.addEventListener("dblclick", edit);
     return s;
   }
   ignoreEvent() {
@@ -208,7 +222,8 @@ class InlineMathWidget extends WidgetType {
 class BlockMathWidget extends WidgetType {
   constructor(
     readonly tex: string,
-    readonly from: number
+    readonly from: number,
+    readonly to: number = from
   ) {
     super();
   }
@@ -218,12 +233,21 @@ class BlockMathWidget extends WidgetType {
   toDOM(view: EditorView) {
     const s = document.createElement("div");
     s.className = "cm-math-block";
+    s.title = "右键或双击编辑公式";
     s.innerHTML = renderKatex(this.tex, true);
     s.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
       e.preventDefault();
       view.dispatch({ selection: { anchor: this.from + 2 } });
       view.focus();
     });
+    const edit = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      mathHooks.onEdit?.(this.tex, true, this.from, this.to);
+    };
+    s.addEventListener("contextmenu", edit);
+    s.addEventListener("dblclick", edit);
     return s;
   }
   ignoreEvent() {
@@ -737,7 +761,7 @@ function scanDoc(state: EditorState): BlockState {
           ranges.push([line.from, endLine.to]);
           decos.push(
             Decoration.replace({
-              widget: new BlockMathWidget(tex, line.from),
+              widget: new BlockMathWidget(tex, line.from, endLine.to),
               block: true,
             }).range(line.from, endLine.to)
           );
