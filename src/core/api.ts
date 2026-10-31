@@ -397,7 +397,7 @@ async function mockInvoke<T>(cmd: string, args: any): Promise<T> {
     case "default_save_dir":
       return out("/demo");
     case "startup_files":
-      return out([]);
+      return out(JSON.parse(localStorage.getItem("moke.startup") || "[]"));
     case "register_file_assoc":
       return out(undefined);
     case "is_default_app":

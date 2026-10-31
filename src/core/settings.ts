@@ -22,6 +22,7 @@ export interface Settings {
   lastFolder: string | null;
   sessionTabs: string[];
   sessionActive: string | null;
+  restoreSession: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -43,6 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lastFolder: null,
   sessionTabs: [],
   sessionActive: null,
+  restoreSession: true,
 };
 
 export const THEMES: { id: string; name: string; sw: string[] }[] = [

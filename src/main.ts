@@ -288,6 +288,14 @@ let restoringSession = false;
 
 function saveSession() {
   if (restoringSession) return;
+  if (!settings.restoreSession) {
+    if (settings.sessionTabs.length || settings.sessionActive) {
+      settings.sessionTabs = [];
+      settings.sessionActive = null;
+      persistSettings();
+    }
+    return;
+  }
   const paths = app.tabs.filter((t) => t.path).map((t) => t.path as string);
   const act = app.tabs.find((t) => t.id === app.activeId);
   // 没变化就不写盘
@@ -304,6 +312,7 @@ function saveSession() {
 }
 
 async function restoreSession() {
+  if (!settings.restoreSession) return;
   const paths = (settings.sessionTabs || []).filter(Boolean);
   if (!paths.length) return;
   restoringSession = true;
@@ -1012,7 +1021,7 @@ function openSettings() {
   );
   body.appendChild(dirRow);
 
-  const toggle = (label: string, desc: string, key: "autosave" | "typewriter" | "focusMode" | "lineNumbers" | "sidebar") => {
+  const toggle = (label: string, desc: string, key: "autosave" | "typewriter" | "focusMode" | "lineNumbers" | "sidebar" | "restoreSession") => {
     const row = h("div", { class: "set-row" });
     row.appendChild(h("div", { class: "set-label" }, h("div", { class: "t", text: label }), h("div", { class: "d", text: desc })));
     const sw = h("div", {
@@ -1020,6 +1029,11 @@ function openSettings() {
       onclick: () => {
         (settings as any)[key] = !settings[key];
         sw.classList.toggle("on", !!(settings as any)[key]);
+        // 关掉会话恢复时，顺手把已经记下的标签清空，免得下次又冒出来
+        if (key === "restoreSession" && !(settings as any)[key]) {
+          settings.sessionTabs = [];
+          settings.sessionActive = null;
+        }
         applySettings();
         persistSettings();
       },
@@ -1033,6 +1047,7 @@ function openSettings() {
   toggle("专注模式", "淡化非当前段落，只看眼前一句", "focusMode");
   toggle("显示行号", "左侧显示行号栏", "lineNumbers");
   toggle("显示侧边栏", "Ctrl + \\ 快速开关", "sidebar");
+  toggle("恢复上次的标签", "重开软件时，自动打开上次没关的文件", "restoreSession");
 
   const assocRow = h("div", { class: "set-row" });
   const assocDesc = h("div", { class: "d", text: "用 Markprose 打开 .md 文件" });
@@ -2443,9 +2458,11 @@ async function boot() {
   if (IS_TAURI) void registerFileAssoc().catch(() => {});
 
   // 把 .md 拖到 exe / 快捷方式图标上启动时，直接打开那个文件
+  // 必须 await：否则文件还在读，下面的 syncWelcome 会以为一个标签都没有，
+  // 于是把欢迎页盖在刚打开的文件上面（双击 .md 打不开就是这个原因）
   if (IS_TAURI) {
     try {
-      for (const f of await startupFiles()) void openPath(f);
+      for (const f of await startupFiles()) await openPath(f);
     } catch {}
   }
 
