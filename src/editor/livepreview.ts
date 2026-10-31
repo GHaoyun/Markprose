@@ -197,7 +197,7 @@ class InlineMathWidget extends WidgetType {
   toDOM(view: EditorView) {
     const s = document.createElement("span");
     s.className = "cm-math-inline";
-    s.title = "右键或双击编辑公式";
+    s.title = "右键编辑公式";
     s.innerHTML = renderKatex(this.tex, false);
     s.addEventListener("mousedown", (e) => {
       if (e.button !== 0) return;
@@ -211,7 +211,6 @@ class InlineMathWidget extends WidgetType {
       mathHooks.onEdit?.(this.tex, false, this.from, this.to);
     };
     s.addEventListener("contextmenu", edit);
-    s.addEventListener("dblclick", edit);
     return s;
   }
   ignoreEvent() {
@@ -233,7 +232,7 @@ class BlockMathWidget extends WidgetType {
   toDOM(view: EditorView) {
     const s = document.createElement("div");
     s.className = "cm-math-block";
-    s.title = "右键或双击编辑公式";
+    s.title = "右键编辑公式";
     s.innerHTML = renderKatex(this.tex, true);
     s.addEventListener("mousedown", (e) => {
       if (e.button !== 0) return;
@@ -247,7 +246,6 @@ class BlockMathWidget extends WidgetType {
       mathHooks.onEdit?.(this.tex, true, this.from, this.to);
     };
     s.addEventListener("contextmenu", edit);
-    s.addEventListener("dblclick", edit);
     return s;
   }
   ignoreEvent() {
