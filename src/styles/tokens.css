@@ -13,6 +13,21 @@
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --dur: 160ms;
 
+  /* 圆角只用四档：小徽标 / 控件 / 面板 / 对话框 */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  /* 动效只用两档时长 */
+  --t-fast: 120ms;
+  --t-base: 180ms;
+
+  /* 通用过渡：只监听真正会变的属性 */
+  --t-ui: background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+
   --titlebar-h: 42px;
   --statusbar-h: 26px;
   --sidebar-w: 262px;

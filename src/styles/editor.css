@@ -30,7 +30,7 @@
 .cm-cursor,
 .cm-dropCursor {
   border-left: 2px solid var(--accent) !important;
-  border-radius: 1px;
+  border-radius: 4px;
 }
 .cm-selectionBackground,
 .cm-editor .cm-selectionBackground,
@@ -109,7 +109,7 @@
 }
 .cm-searchMatch {
   background: color-mix(in srgb, var(--accent) 24%, transparent) !important;
-  border-radius: 2px;
+  border-radius: 4px;
   outline: none !important;
 }
 .cm-searchMatch-selected {
@@ -194,7 +194,7 @@
   font-size: 0.855em;
   background: var(--code-bg);
   border: 1px solid var(--code-border);
-  border-radius: 5px;
+  border-radius: 4px;
   padding: 0.1em 0.36em;
   color: color-mix(in srgb, var(--accent) 72%, var(--text));
   white-space: break-spaces;
@@ -216,7 +216,7 @@
 }
 .cm-mark {
   background: color-mix(in srgb, #f2c14e 42%, transparent);
-  border-radius: 3px;
+  border-radius: 4px;
   padding: 0.05em 0.15em;
   color: inherit;
 }
@@ -240,7 +240,7 @@ html[data-theme="midnight"] .cm-mark {
   top: -2px;
   bottom: -2px;
   width: 3px;
-  border-radius: 2px;
+  border-radius: 4px;
   background: var(--quote-bar);
 }
 .cm-quote .cm-quote-bar {
@@ -274,7 +274,7 @@ html[data-theme="midnight"] .cm-mark {
   border: 1.6px solid color-mix(in srgb, var(--text-faint) 82%, transparent);
   cursor: pointer;
   vertical-align: -3px;
-  transition: all 140ms var(--ease);
+  transition: var(--t-ui);
   background: transparent;
 }
 .cm-task-widget:hover {
@@ -321,7 +321,7 @@ html[data-theme="midnight"] .cm-mark {
     inset -1px 0 0 0 var(--code-border);
 }
 .cm-code-line.cm-code-first.cm-code-last {
-  border-radius: 9px;
+  border-radius: 10px;
 }
 .cm-fence-line {
   background: var(--code-bg);
@@ -372,7 +372,7 @@ html[data-theme="midnight"] .cm-mark {
   padding: 1px 6px;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 120ms var(--ease);
+  transition: var(--t-ui);
   user-select: none;
 }
 .cm-copy-code:hover {
@@ -500,7 +500,7 @@ html[data-theme="midnight"] .cm-tok-type {
   display: block;
   margin: 12px 0;
   overflow-x: auto;
-  border-radius: 9px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   cursor: text;
 }

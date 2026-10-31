@@ -127,7 +127,7 @@
   box-shadow: var(--shadow-sm);
   opacity: 0;
   transform: translateY(-3px);
-  transition: all 160ms var(--ease);
+  transition: var(--t-ui);
   pointer-events: none;
 }
 .cm-table-wrap:hover .cm-table-edit {

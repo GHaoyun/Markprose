@@ -48,7 +48,7 @@
 .cm-code-lang .pill {
   font-size: 9.5px;
   padding: 1px 7px;
-  border-radius: 5px;
+  border-radius: 4px;
   letter-spacing: 0.08em;
 }
 .cm-copy-code {
@@ -105,7 +105,7 @@ table.md-table code {
   align-items: center;
   margin-left: 10px;
   padding: 2px 9px;
-  border-radius: 7px;
+  border-radius: 6px;
   font-size: 11px;
   font-family: var(--font-ui);
   color: var(--accent);
@@ -114,7 +114,7 @@ table.md-table code {
   cursor: pointer;
   vertical-align: middle;
   user-select: none;
-  transition: all 140ms var(--ease);
+  transition: var(--t-ui);
 }
 .cm-table-done:hover {
   background: var(--accent);
