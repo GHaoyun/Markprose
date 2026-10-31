@@ -12,6 +12,7 @@
   <img src="https://img.shields.io/badge/platform-Windows%20x64-6b6b6b" alt="Platform">
   <a href="https://github.com/GHaoyun/Markprose/releases"><img src="https://img.shields.io/github/downloads/GHaoyun/Markprose/total?color=2f7d5b" alt="Downloads"></a>
   <a href="https://github.com/GHaoyun/Markprose/stargazers"><img src="https://img.shields.io/github/stars/GHaoyun/Markprose?color=e2a674" alt="Stars"></a>
+  <img src="https://visitor-badge.laobi.icu/badge?page_id=GHaoyun.Markprose" alt="Views">
 </p>
 
 A free and open-source Markdown editor for Windows x64, available as an installer and a portable build. Very small and simple, but fully featured.
