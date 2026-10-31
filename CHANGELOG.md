@@ -1,6 +1,6 @@
 # 更新日志 / Changelog
 
-## 1.2.0 — 2026-10-31
+## 1.1.1 — 2026-10-31
 
 ### 中文
 
@@ -8,7 +8,8 @@
 
 - 会话恢复：下次打开软件时，上次没关掉的标签会自动重新打开，并停在当时正在看的那一个。文件被删掉或移走的会自动跳过，不会报错。
 - 设置里新增「恢复上次的标签」开关，不想要这个行为可以关掉。
-- 标签栏右侧常驻「+」按钮，标签多到需要横向滚动时也钉在右边。
+- 设置里新增「打开文件后显示」，可选文件夹 / 大纲 / 搜索，打开文件后侧边栏自动切到这一栏，默认大纲。
+- 标签栏改为常驻：没有打开文件时也显示，右侧的「+」按钮一直都在，随时可以新建。
 
 **修复**
 
@@ -16,6 +17,7 @@
 
 **改进**
 
+- 欢迎页不再盖住标签栏和工具栏，只占编辑区。
 - 欢迎页的显示状态改由「当前有没有打开的标签」统一决定，不再由各个入口手工开关，避免状态打架。
 - 「关于」一栏只保留版本号。
 
@@ -24,11 +26,18 @@
 **Added**
 
 - Session restore: tabs left open last time are reopened on launch, with the previously active one focused. Files that have been deleted or moved are skipped silently.
-- A persistent "+" button at the right end of the tab bar, pinned even when tabs overflow and scroll.
+- Setting "Restore last tabs" to turn that behaviour off.
+- Setting "Show after opening a file": folder / outline / search. The sidebar switches to it whenever a file is opened; defaults to outline.
+- The tab bar is always visible, including on the welcome screen, with a persistent "+" button.
+
+**Fixed**
+
+- Launching by double-clicking a `.md` left the welcome screen covering the file that had just opened. Startup files were opened fire-and-forget while the welcome screen was shown unconditionally afterwards. Startup files are now awaited before deciding whether to show it.
 
 **Improved**
 
-- Welcome screen visibility is now derived from the tab count instead of being toggled by hand in several places.
+- The welcome screen no longer covers the tab bar and toolbar; it only fills the editor area.
+- Welcome screen visibility is derived from the tab count instead of being toggled by hand in several places.
 - The About row shows the version number only.
 
 ---

@@ -277,7 +277,11 @@ async function openPath(path: string, silent = false) {
     const r = await readText(path);
     const t = newTab(r.content, path);
     t.savedAt = r.mtime;
-    if (!silent) toast(`已打开 ${basename(path)}`);
+    if (!silent) {
+      toast(`已打开 ${basename(path)}`);
+      // 打开文件后自动切到设置里指定的侧栏
+      switchPanel(settings.openPanel);
+    }
   } catch (e: any) {
     if (!silent) toast("打开失败：" + (e?.message || e), "err");
   }
@@ -1047,6 +1051,37 @@ function openSettings() {
   toggle("专注模式", "淡化非当前段落，只看眼前一句", "focusMode");
   toggle("显示行号", "左侧显示行号栏", "lineNumbers");
   toggle("显示侧边栏", "Ctrl + \\ 快速开关", "sidebar");
+
+  // 打开文件后侧边栏自动切到哪一栏
+  const panelRow = h("div", { class: "set-row" });
+  panelRow.appendChild(
+    h("div", { class: "set-label" },
+      h("div", { class: "t", text: "打开文件后显示" }),
+      h("div", { class: "d", text: "侧边栏自动切到这一栏" })
+    )
+  );
+  const seg = h("div", { class: "seg" });
+  for (const [v, label] of [
+    ["files", "文件夹"],
+    ["outline", "大纲"],
+    ["search", "搜索"],
+  ] as const) {
+    seg.appendChild(
+      h("button", {
+        class: "seg-btn" + (settings.openPanel === v ? " on" : ""),
+        "data-v": v,
+        text: label,
+        onclick: () => {
+          settings.openPanel = v;
+          persistSettings();
+          seg.querySelectorAll(".seg-btn").forEach((b) => b.classList.remove("on"));
+          (seg.querySelector(`.seg-btn[data-v="${v}"]`) as HTMLElement | null)?.classList.add("on");
+        },
+      })
+    );
+  }
+  panelRow.appendChild(h("div", { class: "set-ctl" }, seg));
+  body.appendChild(panelRow);
   toggle("恢复上次的标签", "重开软件时，自动打开上次没关的文件", "restoreSession");
 
   const assocRow = h("div", { class: "set-row" });

@@ -23,6 +23,7 @@ export interface Settings {
   sessionTabs: string[];
   sessionActive: string | null;
   restoreSession: boolean;
+  openPanel: "files" | "outline" | "search";
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -45,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sessionTabs: [],
   sessionActive: null,
   restoreSession: true,
+  openPanel: "outline",
 };
 
 export const THEMES: { id: string; name: string; sw: string[] }[] = [
