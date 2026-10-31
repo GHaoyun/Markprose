@@ -1029,7 +1029,7 @@ function openSettings() {
   info.appendChild(
     h("div", { class: "set-label" },
       h("div", { class: "t", text: "关于Markprose" }),
-      h("div", { class: "d", text: "v1.0.0" })
+      h("div", { class: "d", text: "v1.1.0" })
     )
   );
   body.appendChild(info);
@@ -2278,7 +2278,7 @@ function menuDefs(): MMenu[] {
           },
         },
         { sep: true },
-        { label: "关于 Markprose", icon: "info", run: () => void alertBox({ title: "关于 Markprose", message: "v1.0.0" }) },
+        { label: "关于 Markprose", icon: "info", run: () => void alertBox({ title: "关于 Markprose", message: "v1.1.0" }) },
       ],
     },
   ];
