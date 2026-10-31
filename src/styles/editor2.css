@@ -1,0 +1,163 @@
+/* ============ 扩展 Markdown 元素 ============ */
+
+/* 目录 */
+.cm-toc {
+  display: block;
+  margin: 14px 0;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-soft);
+  font-size: 0.92em;
+  cursor: text;
+}
+.cm-toc-title {
+  font-size: 0.78em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.cm-toc a {
+  display: block;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 2px 0;
+  line-height: 1.6;
+  transition: color 120ms var(--ease);
+}
+.cm-toc a:hover {
+  color: var(--accent);
+}
+.cm-toc .l2 {
+  padding-left: 14px;
+}
+.cm-toc .l3 {
+  padding-left: 28px;
+}
+.cm-toc .l4 {
+  padding-left: 42px;
+}
+.cm-toc .l5,
+.cm-toc .l6 {
+  padding-left: 56px;
+}
+
+/* 脚注 */
+.cm-footnote-ref {
+  font-size: 0.72em;
+  vertical-align: super;
+  color: var(--accent);
+  font-weight: 600;
+  padding: 0 1px;
+  cursor: pointer;
+}
+.cm-footnote-def {
+  font-size: 0.88em;
+  color: var(--text-dim);
+  border-top: 1px dashed var(--border);
+  padding-top: 4px !important;
+}
+
+/* YAML 头信息 */
+.cm-frontmatter {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  color: var(--text-faint);
+  background: var(--bg-inset);
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+  line-height: 1.6 !important;
+}
+.cm-frontmatter.cm-fm-first {
+  border-radius: 9px 9px 0 0;
+  padding-top: 8px !important;
+}
+.cm-frontmatter.cm-fm-last {
+  border-radius: 0 0 9px 9px;
+  padding-bottom: 8px !important;
+}
+
+/* 上下标 */
+.cm-sup {
+  font-size: 0.74em;
+  vertical-align: super;
+  line-height: 0;
+}
+.cm-sub {
+  font-size: 0.74em;
+  vertical-align: sub;
+  line-height: 0;
+}
+
+/* 表情 */
+.cm-emoji {
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
+  font-size: 1.05em;
+  vertical-align: -0.06em;
+}
+
+/* 定义列表 */
+.cm-deflist-term {
+  font-weight: 650;
+  padding-top: 6px !important;
+}
+.cm-deflist-def {
+  padding-left: 22px !important;
+  color: var(--text-dim);
+}
+
+/* 表格编辑按钮 */
+.cm-table-wrap {
+  position: relative;
+}
+.cm-table-edit {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-family: var(--font-ui);
+  color: var(--text-dim);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  opacity: 0;
+  transform: translateY(-3px);
+  transition: all 160ms var(--ease);
+  pointer-events: none;
+}
+.cm-table-wrap:hover .cm-table-edit {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.cm-table-edit:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* 图片点击编辑提示 */
+.cm-img-widget {
+  position: relative;
+  transition: box-shadow 160ms var(--ease), transform 160ms var(--ease);
+}
+.cm-img-widget:hover {
+  box-shadow: 0 0 0 2px var(--accent-ring);
+}
+.cm-img-widget:hover::after {
+  content: "点击编辑";
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, #000 62%, transparent);
+  color: #fff;
+  font-size: 10.5px;
+  line-height: 1.6;
+  pointer-events: none;
+}

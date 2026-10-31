@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="pine">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Markprose</title>
+</head>
+<body>
+  <div id="app">
+    <!-- 标题栏 -->
+    <header id="titlebar" data-tauri-drag-region>
+      <div class="tb-left">
+        <button class="tb-btn" id="btn-sidebar" title="侧边栏 (Ctrl+\)">
+          <svg viewBox="0 0 16 16" width="15" height="15"><rect x="1.5" y="2.5" width="13" height="11" rx="2"/><line x1="6" y1="2.5" x2="6" y2="13.5"/></svg>
+        </button>
+        <div class="tb-brand" data-tauri-drag-region><img class="brand-mark" src="/markprose-icon.png" alt="" draggable="false" /><span class="brand-name">Markprose</span></div>
+        <div class="tb-doc" id="tb-doc" data-tauri-drag-region></div>
+      </div>
+      <div class="tb-drag" data-tauri-drag-region></div>
+      <div class="tb-right">
+        <button class="tb-btn" id="btn-palette" title="命令面板 (Ctrl+Shift+P)">
+          <svg viewBox="0 0 16 16" width="15" height="15"><circle cx="7" cy="7" r="4.5"/><line x1="10.4" y1="10.4" x2="14" y2="14"/></svg>
+        </button>
+        <button class="tb-btn" id="btn-theme" title="切换主题">
+          <svg viewBox="0 0 16 16" width="15" height="15"><circle cx="8" cy="8" r="6"/><path d="M8 2a6 6 0 0 0 0 12z" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <button class="tb-btn" id="btn-settings" title="设置 (Ctrl+,)">
+          <svg viewBox="0 0 24 24" width="17" height="17" stroke-width="1.7"><circle cx="12" cy="12" r="3.1"/><path d="M19.2 14.6a1.5 1.5 0 0 0 .3 1.65l.05.05a1.8 1.8 0 0 1-2.55 2.55l-.05-.05a1.5 1.5 0 0 0-1.65-.3 1.5 1.5 0 0 0-.9 1.37V20a1.8 1.8 0 0 1-3.6 0v-.09a1.5 1.5 0 0 0-.98-1.37 1.5 1.5 0 0 0-1.65.3l-.05.05a1.8 1.8 0 0 1-2.55-2.55l.05-.05a1.5 1.5 0 0 0 .3-1.65 1.5 1.5 0 0 0-1.37-.9H4a1.8 1.8 0 0 1 0-3.6h.09A1.5 1.5 0 0 0 5.46 9a1.5 1.5 0 0 0-.3-1.65l-.05-.05A1.8 1.8 0 0 1 7.66 4.75l.05.05a1.5 1.5 0 0 0 1.65.3H9.4a1.5 1.5 0 0 0 .9-1.37V3.6a1.8 1.8 0 0 1 3.6 0v.09a1.5 1.5 0 0 0 .9 1.37 1.5 1.5 0 0 0 1.65-.3l.05-.05a1.8 1.8 0 0 1 2.55 2.55l-.05.05a1.5 1.5 0 0 0-.3 1.65v.09a1.5 1.5 0 0 0 1.37.9H20a1.8 1.8 0 0 1 0 3.6h-.09a1.5 1.5 0 0 0-1.37.9z"/></svg>
+        </button>
+        <div class="tb-win">
+          <button class="win-btn" id="win-min" title="最小化"><svg viewBox="0 0 12 12" width="12" height="12"><line x1="2" y1="6" x2="10" y2="6"/></svg></button>
+          <button class="win-btn" id="win-max" title="最大化"><svg viewBox="0 0 12 12" width="12" height="12"><rect x="2.4" y="2.4" width="7.2" height="7.2" rx="1.2"/></svg></button>
+          <button class="win-btn win-close" id="win-close" title="关闭"><svg viewBox="0 0 12 12" width="12" height="12"><line x1="2.8" y1="2.8" x2="9.2" y2="9.2"/><line x1="9.2" y1="2.8" x2="2.8" y2="9.2"/></svg></button>
+        </div>
+      </div>
+    </header>
+
+    <div id="body">
+      <aside id="sidebar">
+        <div class="sb-tabs">
+          <button class="sb-tab active" data-panel="files">文件</button>
+          <button class="sb-tab" data-panel="outline">大纲</button>
+          <button class="sb-tab" data-panel="search">搜索</button>
+        </div>
+        <div class="sb-body">
+          <div class="sb-panel active" data-panel="files">
+            <div class="sb-toolbar">
+              <button class="mini-btn" id="btn-open-folder" title="打开文件夹">打开文件夹</button>
+              <button class="mini-btn" id="btn-new-file" title="新建文件">+</button>
+            </div>
+            <div class="tree" id="tree"></div>
+          </div>
+          <div class="sb-panel" data-panel="outline">
+            <div class="outline" id="outline"></div>
+          </div>
+          <div class="sb-panel" data-panel="search">
+            <div class="search-box">
+              <input type="text" id="search-input" placeholder="在整个文件夹中搜索…" spellcheck="false" />
+            </div>
+            <div class="search-results" id="search-results"></div>
+          </div>
+        </div>
+      </aside>
+
+      <main id="main">
+        <div id="tabs"></div>
+        <div id="toolbar"></div>
+        <div id="editor-host"></div>
+        <div id="welcome">
+          <div class="wc-inner">
+            <img class="wc-mark" src="/markprose-icon.png" alt="Markprose" draggable="false" />
+            <h1>Markprose</h1>
+            <p class="wc-sub">所见即所得的 Markdown 编辑器</p>
+            <div class="wc-actions">
+              <button class="wc-btn primary" id="wc-new">新建文档</button>
+              <button class="wc-btn" id="wc-open">打开文件</button>
+              <button class="wc-btn" id="wc-folder">打开文件夹</button>
+            </div>
+            <div class="wc-keys">
+              <span><kbd>Ctrl</kbd>+<kbd>N</kbd> 新建</span>
+              <span><kbd>Ctrl</kbd>+<kbd>O</kbd> 打开</span>
+              <span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> 命令面板</span>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <footer id="statusbar">
+      <div class="st-left">
+        <span id="st-file">就绪</span>
+      </div>
+      <div class="st-right">
+        <button class="st-item" id="st-mode" title="切换源码/预览 (Ctrl+/)">实时预览</button>
+        <span class="st-item" id="st-words">0 字</span>
+        <span class="st-item" id="st-lines">0 行</span>
+        <span class="st-item" id="st-read">0 分钟</span>
+        <span class="st-item" id="st-cursor">行 1, 列 1</span>
+      </div>
+    </footer>
+  </div>
+
+  <div id="palette" class="overlay">
+    <div class="palette-box">
+      <input type="text" id="palette-input" placeholder="输入命令…" spellcheck="false" autocomplete="off" />
+      <div class="palette-list" id="palette-list"></div>
+    </div>
+  </div>
+
+  <div id="settings" class="overlay">
+    <div class="settings-box">
+      <div class="settings-head">
+        <h2>设置</h2>
+        <button class="mini-btn" id="settings-close">关闭</button>
+      </div>
+      <div class="settings-body" id="settings-body"></div>
+    </div>
+  </div>
+
+  <div id="dialog-host"></div>
+  <div id="bubble"></div>
+  <div id="toasts"></div>
+  <div id="ctxmenu"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

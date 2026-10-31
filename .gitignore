@@ -1,0 +1,18 @@
+# 依赖与构建产物
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+# 编辑器 / 系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# 本地笔记
+新建Markdown*.md
+
+# 本地可执行文件（发布包走 Releases）
+*.exe
