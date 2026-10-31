@@ -409,9 +409,25 @@ fn startup_files() -> Vec<String> {
     out
 }
 
+/// 内嵌的 .md 文件图标（黑白版）
+const FILE_ICON: &[u8] = include_bytes!("../icons/file-md.ico");
+
+/// 把图标释放到配置目录，返回路径给注册表用
+fn file_icon_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    use tauri::Manager;
+    let dir = app.path().app_config_dir().map_err(err)?;
+    fs::create_dir_all(&dir).map_err(err)?;
+    let p = dir.join("markprose-file.ico");
+    let need = fs::read(&p).map(|b| b != FILE_ICON).unwrap_or(true);
+    if need {
+        fs::write(&p, FILE_ICON).map_err(err)?;
+    }
+    Ok(p)
+}
+
 /// 把当前 exe 注册进「打开方式」列表（HKCU，不需要管理员权限）
 #[tauri::command]
-fn register_file_assoc() -> Result<(), String> {
+fn register_file_assoc(app: tauri::AppHandle) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         use winreg::enums::HKEY_CURRENT_USER;
@@ -421,20 +437,21 @@ fn register_file_assoc() -> Result<(), String> {
         let cmd = format!("\"{}\" \"%1\"", exe.display());
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
 
-        let (app, _) = hkcu
+        let (appkey, _) = hkcu
             .create_subkey(r"Software\Classes\Applications\Markprose.exe")
             .map_err(err)?;
-        app.set_value("FriendlyAppName", &"Markprose").map_err(err)?;
-        let (shell, _) = app
+        appkey.set_value("FriendlyAppName", &"Markprose").map_err(err)?;
+        let (shell, _) = appkey
             .create_subkey(r"shell\open\command")
             .map_err(err)?;
         shell.set_value("", &cmd).map_err(err)?;
-        let (types, _) = app.create_subkey("SupportedTypes").map_err(err)?;
+        let (types, _) = appkey.create_subkey("SupportedTypes").map_err(err)?;
         for ext in [".md", ".markdown", ".mdown", ".txt"] {
             types.set_value(ext, &"").map_err(err)?;
         }
-        let (icon, _) = app.create_subkey("DefaultIcon").map_err(err)?;
-        icon.set_value("", &format!("{},0", exe.display())).map_err(err)?;
+        let (icon, _) = appkey.create_subkey("DefaultIcon").map_err(err)?;
+        let ico = file_icon_path(&app)?;
+        icon.set_value("", &format!("{},0", ico.display())).map_err(err)?;
 
         // 注册 Capabilities，系统「默认应用」里才会出现 Markprose 自己的页面
         let (caps, _) = hkcu
@@ -484,7 +501,7 @@ fn is_default_app() -> bool {
 /// 尝试把 Markprose 设为 .md 的默认程序。
 /// 返回 "set"（已设置）或 "blocked"（被系统 UserChoice 拦住，需要用户手动确认）
 #[tauri::command]
-fn set_default_app() -> Result<String, String> {
+fn set_default_app(app: tauri::AppHandle) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         use winreg::enums::HKEY_CURRENT_USER;
@@ -502,7 +519,8 @@ fn set_default_app() -> Result<String, String> {
         let (shell, _) = prog.create_subkey(r"shell\open\command").map_err(err)?;
         shell.set_value("", &cmd).map_err(err)?;
         let (icon, _) = prog.create_subkey("DefaultIcon").map_err(err)?;
-        icon.set_value("", &format!("{},0", exe.display())).map_err(err)?;
+        let ico = file_icon_path(&app)?;
+        icon.set_value("", &format!("{},0", ico.display())).map_err(err)?;
 
         // 系统里已经有用户选择记录时，程序改不动，只能引导用户去设置页
         let blocked = hkcu

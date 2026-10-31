@@ -95,8 +95,8 @@
 .ed-menu {
   position: fixed;
   z-index: 360;
-  min-width: 212px;
-  padding: 5px;
+  min-width: 238px;
+  padding: 6px;
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -142,8 +142,9 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 7px 10px;
+  gap: 9px;
+  height: 32px;
+  padding: 0 10px;
   border-radius: 6px;
   font-size: 12.5px;
   color: var(--text-dim);
@@ -653,4 +654,40 @@ html.theme-anim *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* 右键菜单：图标与色点 */
+.ed-ic {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  opacity: 0.85;
+}
+.ed-ic svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ed-mi:hover .ed-ic {
+  opacity: 1;
+}
+.ed-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.ed-ml {
+  flex: 1;
+}
+.ed-mi.has-sub .ed-ml,
+.ed-sub .ed-ml {
+  flex: 1;
 }

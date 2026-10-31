@@ -65,6 +65,7 @@ import {
   cmdLink,
   cmdList,
   cmdMark,
+  cmdUnderline,
   cmdMath,
   cmdQuote,
   cmdStrike,
@@ -1706,16 +1707,76 @@ async function doPaste() {
 function showEditorMenu(x: number, y: number) {
   closeEditorMenu();
   const menu = h("div", { class: "ed-menu" });
+  const sep = () => h("div", { class: "ed-sep" });
 
-  // 上排：小图标（高频格式）
-  const row = h("div", { class: "ed-row" });
+  const IC: Record<string, string> = {
+    copy: '<svg viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1.6"/><path d="M10.5 5.5V4.1A1.6 1.6 0 0 0 8.9 2.5H4.1A1.6 1.6 0 0 0 2.5 4.1v4.8a1.6 1.6 0 0 0 1.6 1.6h1.4"/></svg>',
+    cut: '<svg viewBox="0 0 16 16"><circle cx="4.2" cy="11.9" r="1.9"/><circle cx="11.8" cy="11.9" r="1.9"/><path d="M5.5 10.5L11 2.2M10.5 10.5L5 2.2"/></svg>',
+    paste: '<svg viewBox="0 0 16 16"><rect x="3.6" y="3.4" width="8.8" height="10.1" rx="1.6"/><path d="M6.1 3.4v-.6a1.4 1.4 0 0 1 1.4-1.4h1a1.4 1.4 0 0 1 1.4 1.4v.6"/></svg>',
+    mark: '<svg viewBox="0 0 16 16"><path d="M3.2 11.4l7.4-7.4 2.4 2.4-7.4 7.4H3.2z"/><path d="M2.6 14.6h10.8"/></svg>',
+    under: '<svg viewBox="0 0 16 16"><path d="M4.2 2.4v4.8a3.8 3.8 0 0 0 7.6 0V2.4"/><path d="M3.2 14.2h9.6"/></svg>',
+    strike: '<svg viewBox="0 0 16 16"><path d="M10.4 4.6C9.9 3.7 9 3.2 8 3.2 6.4 3.2 5.2 4.1 5.2 5.5c0 .9.6 1.5 1.7 2"/><path d="M6.1 11.3c.5.9 1.3 1.4 2.4 1.4 1.6 0 2.8-.9 2.8-2.3 0-.5-.2-1-.5-1.3"/><path d="M2.6 7.9h10.8"/></svg>',
+    eraser: '<svg viewBox="0 0 16 16"><path d="M6.6 13.4h6.2"/><path d="M9.9 2.9l3.2 3.2a.9.9 0 0 1 0 1.3l-4.7 4.7a.9.9 0 0 1-1.3 0L3.9 9.1a.9.9 0 0 1 0-1.3l4.7-4.9a.9.9 0 0 1 1.3 0z"/></svg>',
+  };
+
+  const row = (iconSvg: string, label: string, hint: string, dot: string, fn: () => void) => {
+    const el = h("div", {
+      class: "ed-mi",
+      onmousedown: (e: MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        closeEditorMenu();
+        fn();
+      },
+    });
+    if (iconSvg) el.appendChild(h("span", { class: "ed-ic", html: iconSvg }));
+    el.appendChild(h("span", { class: "ed-ml", text: label }));
+    if (hint) el.appendChild(h("span", { class: "ed-mh", text: hint }));
+    if (dot) el.appendChild(h("span", { class: "ed-dot", style: { background: dot } }));
+    return el;
+  };
+
+  const mi = (label: string, hint: string, fn: () => void) => row("", label, hint, "", fn);
+
+  const sub = (label: string, items: [string, string, () => void][]) => {
+    const el = h(
+      "div",
+      { class: "ed-mi has-sub" },
+      h("span", { class: "ed-ml", text: label }),
+      h("span", { class: "ed-arrow", text: "\u203a" })
+    );
+    const panel = h("div", { class: "ed-sub" });
+    for (const [l, hint, fn] of items) panel.appendChild(mi(l, hint, fn));
+    el.appendChild(panel);
+    el.addEventListener("mouseenter", () => {
+      const r = el.getBoundingClientRect();
+      el.classList.toggle("flip", r.right + 200 > window.innerWidth - 8);
+    });
+    return el;
+  };
+
+  menu.append(
+    row(IC.copy, "复制", "Ctrl+C", "", () => void doCopy()),
+    row(IC.cut, "剪切", "Ctrl+X", "", () => void doCut()),
+    row(IC.paste, "粘贴", "Ctrl+V", "", () => void doPaste())
+  );
+  menu.appendChild(sep());
+
+  menu.append(
+    row(IC.mark, "高亮", "", "#f0c33c", () => cmdMark(view)),
+    row(IC.under, "下划线", "", "#e5484d", () => cmdUnderline(view)),
+    row(IC.strike, "删除线", "", "#e5484d", () => cmdStrike(view)),
+    row(IC.eraser, "清除格式", "", "", clearFormat)
+  );
+  menu.appendChild(sep());
+
+  const quickRow = h("div", { class: "ed-row" });
   const quick: [string, string, () => void][] = [
-    ["B", "加粗", () => cmdBold(view)],
-    ["I", "斜体", () => cmdItalic(view)],
-    ["S", "删除线", () => cmdStrike(view)],
-    ["<>", "行内代码", () => cmdCode(view)],
-    ["H", "高亮", () => cmdMark(view)],
-    ["∑", "公式", () => cmdMath(view)],
+    ["B", "加粗 (Ctrl+B)", () => cmdBold(view)],
+    ["I", "斜体 (Ctrl+I)", () => cmdItalic(view)],
+    ["<>", "行内代码 (Ctrl+E)", () => cmdCode(view)],
+    ["\u2211", "公式", () => cmdMath(view)],
+    ["\u2261", "引用", () => cmdQuote(view)],
   ];
   for (const [label, title, fn] of quick) {
     const b = h("button", {
@@ -1730,60 +1791,13 @@ function showEditorMenu(x: number, y: number) {
     });
     if (label === "B") b.innerHTML = "<b>B</b>";
     else if (label === "I") b.innerHTML = "<i>I</i>";
-    else if (label === "S") b.innerHTML = "<s>S</s>";
-    else if (label === "∑") b.innerHTML = '<span style="font-family:var(--font-serif);font-size:14px">∑</span>';
+    else if (label === "\u2211") b.innerHTML = '<span style="font-family:var(--font-serif);font-size:14px">\u2211</span>';
     else b.textContent = label;
-    row.appendChild(b);
+    quickRow.appendChild(b);
   }
-  menu.appendChild(row);
-  menu.appendChild(h("div", { class: "ed-sep" }));
-
-  const mi = (label: string, hint: string, fn: () => void) =>
-    h(
-      "div",
-      {
-        class: "ed-mi",
-        onmousedown: (e: MouseEvent) => {
-          e.preventDefault();
-          e.stopPropagation();
-          closeEditorMenu();
-          fn();
-        },
-      },
-      h("span", { class: "ed-ml", text: label }),
-      hint ? h("span", { class: "ed-mh", text: hint }) : null
-    );
-
-  const sep = () => h("div", { class: "ed-sep" });
-
-  // 二级菜单
-  const sub = (label: string, items: [string, string, () => void][]) => {
-    const el = h(
-      "div",
-      { class: "ed-mi has-sub" },
-      h("span", { class: "ed-ml", text: label }),
-      h("span", { class: "ed-arrow", text: "›" })
-    );
-    const panel = h("div", { class: "ed-sub" });
-    for (const [l, hint, fn] of items) panel.appendChild(mi(l, hint, fn));
-    el.appendChild(panel);
-    el.addEventListener("mouseenter", () => {
-      const r = el.getBoundingClientRect();
-      el.classList.toggle("flip", r.right + 200 > window.innerWidth - 8);
-    });
-    return el;
-  };
-
-  menu.append(
-    mi("剪切", "Ctrl+X", () => void doCut()),
-    mi("复制", "Ctrl+C", () => void doCopy()),
-    mi("粘贴", "Ctrl+V", () => void doPaste()),
-    mi("全选", "Ctrl+A", () => {
-      view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
-      view.focus();
-    })
-  );
+  menu.appendChild(quickRow);
   menu.appendChild(sep());
+
   menu.append(
     sub("标题", [
       ["正文", "Ctrl+0", () => cmdHeading(view, 0)],
@@ -1799,10 +1813,6 @@ function showEditorMenu(x: number, y: number) {
       ["有序列表", "", () => cmdList(view, "ol")],
       ["任务清单", "", () => cmdList(view, "task")],
     ]),
-    mi("引用", "Ctrl+Shift+Q", () => cmdQuote(view))
-  );
-  menu.appendChild(sep());
-  menu.append(
     sub("插入", [
       ["表格", "Ctrl+T", () => insertSnippet(view, TABLE_SNIPPET)],
       ["代码块", "Ctrl+Shift+K", () => cmdCodeBlock(view)],
@@ -1812,7 +1822,11 @@ function showEditorMenu(x: number, y: number) {
       ["块级公式", "Ctrl+Shift+M", () => insertSnippet(view, MATH_SNIPPET)],
       ["分隔线", "", () => cmdHr(view)],
       ["目录 [TOC]", "", () => cmdToc(view)],
-    ])
+    ]),
+    mi("全选", "Ctrl+A", () => {
+      view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+      view.focus();
+    })
   );
   menu.appendChild(sep());
   menu.append(mi("撤销", "Ctrl+Z", () => undo(view)), mi("重做", "Ctrl+Y", () => redo(view)));

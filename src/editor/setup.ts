@@ -210,6 +210,7 @@ export const cmdItalic = (v: EditorView) => toggleWrapped(v, ["Emphasis"], "*", 
 export const cmdStrike = (v: EditorView) => toggleWrapped(v, ["Strikethrough"], "~~", "删除线");
 export const cmdCode = (v: EditorView) => toggleWrapped(v, ["InlineCode"], "`", "代码");
 export const cmdMark = (v: EditorView) => toggleWrapped(v, ["Highlight"], "==", "高亮");
+export const cmdUnderline = (v: EditorView) => toggleWrapped(v, [], "++", "下划线");
 export const cmdMath = (v: EditorView) => toggleWrapped(v, ["InlineMath"], "$", "x");
 
 /* ---------- 代码块 ---------- */
