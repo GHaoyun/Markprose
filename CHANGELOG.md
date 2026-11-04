@@ -1,5 +1,27 @@
 # 更新日志 / Changelog
 
+## 1.1.2 — 2026-11-04
+
+### 中文
+
+**改进**
+
+- 会话恢复不再只记文件路径：每个标签的光标位置和滚动条位置也会一起记住，重开软件回到上次看到的地方。切换标签时各自的滚动位置也独立保留。
+- 光标移动、打字、滚动时会低频写盘（600ms 节流），不用等关窗才保存。
+- 关掉「恢复上次的标签」时，连光标和滚动记录一起清空，不留脏数据。
+- 文件在外部被改短时，恢复的光标位置会自动收进文档范围内，不会越界报错。
+
+### English
+
+**Improved**
+
+- Session restore now remembers each tab's cursor and scroll position, not just its path. Switching tabs keeps each one's own scroll offset.
+- Cursor moves, typing and scrolling trigger a throttled save (600 ms) instead of waiting for the window to close.
+- Turning off "Restore last tabs" clears the saved cursor/scroll data as well.
+- Restored cursor positions are clamped to the document length if the file was shortened outside the editor.
+
+---
+
 ## 1.1.1 — 2026-10-31
 
 ### 中文

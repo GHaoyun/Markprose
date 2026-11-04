@@ -22,6 +22,7 @@ export interface Settings {
   lastFolder: string | null;
   sessionTabs: string[];
   sessionActive: string | null;
+  sessionState: Record<string, { anchor: number; head: number; scrollTop: number }>;
   restoreSession: boolean;
   openPanel: "files" | "outline" | "search";
 }
@@ -45,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   lastFolder: null,
   sessionTabs: [],
   sessionActive: null,
+  sessionState: {},
   restoreSession: true,
   openPanel: "outline",
 };

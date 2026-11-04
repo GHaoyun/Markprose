@@ -91,6 +91,7 @@ interface Tab {
   dirty: boolean;
   savedAt: number;
   savedText: string;
+  scrollTop: number;
 }
 
 const app = {
@@ -125,8 +126,10 @@ function mountEditor() {
     scheduleBubble();
     if (u.selectionSet || u.docChanged) scheduleToolbarSync();
     if (settings.typewriter && u.selectionSet) typewriter();
+    scheduleSessionSave();
   };
   view.dom.addEventListener("dragover", (e) => e.preventDefault());
+  view.scrollDOM.addEventListener("scroll", () => scheduleSessionSave(), { passive: true });
   editorHooks.onContextMenu = (x, y) => showEditorMenu(x, y);
   mathHooks.onEdit = (tex, block, from, to) => void editMathAt(tex, block, from, to);
 }
@@ -145,6 +148,7 @@ function syncCurrent() {
   const t = activeTab();
   if (!t) return;
   t.state = view.state;
+  t.scrollTop = view.scrollDOM.scrollTop;
 }
 
 function renderTabs() {
@@ -226,6 +230,15 @@ function activate(id: string) {
   docCtx.path = t.path;
   docCtx.dir = t.path ? dirname(t.path) : "";
   view.setState(t.state);
+  // CodeMirror 换 state 后要等一次布局测量才能滚，两帧后恢复上次的位置
+  const back = t.scrollTop || 0;
+  if (back > 0) {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (app.activeId === id) view.scrollDOM.scrollTop = back;
+      })
+    );
+  }
   view.focus();
   syncWelcome();
   const host = $("#editor-host");
@@ -250,6 +263,7 @@ function newTab(content = "", path: string | null = null) {
     dirty: false,
     savedAt: Date.now(),
     savedText: content,
+    scrollTop: 0,
   };
   app.tabs.push(t);
   app.activeId = t.id;
@@ -287,23 +301,43 @@ async function openPath(path: string, silent = false) {
   }
 }
 
-/* ---------- 会话恢复：下次打开软件，标签还在 ---------- */
+/* ---------- 会话恢复：标签、光标、滚动位置都带回来 ---------- */
 let restoringSession = false;
+let sessionTimer: number | undefined;
 
 function saveSession() {
   if (restoringSession) return;
   if (!settings.restoreSession) {
-    if (settings.sessionTabs.length || settings.sessionActive) {
+    if (
+      settings.sessionTabs.length ||
+      settings.sessionActive ||
+      Object.keys(settings.sessionState || {}).length
+    ) {
       settings.sessionTabs = [];
       settings.sessionActive = null;
+      settings.sessionState = {};
       persistSettings();
     }
     return;
   }
   const paths = app.tabs.filter((t) => t.path).map((t) => t.path as string);
   const act = app.tabs.find((t) => t.id === app.activeId);
-  // 没变化就不写盘
+
+  const nextState: Record<string, { anchor: number; head: number; scrollTop: number }> = {};
+  for (const t of app.tabs) {
+    if (!t.path) continue;
+    const sel = t.state.selection.main;
+    nextState[norm(t.path)] = {
+      anchor: sel.anchor,
+      head: sel.head,
+      scrollTop: Math.round(t.id === app.activeId ? view.scrollDOM.scrollTop : t.scrollTop || 0),
+    };
+  }
+
+  const old = settings.sessionState || {};
+  // 光标 / 滚动也参与比较：没变化就不写盘，变了才落盘
   if (
+    JSON.stringify(nextState) === JSON.stringify(old) &&
     paths.length === settings.sessionTabs.length &&
     paths.every((p, i) => p === settings.sessionTabs[i]) &&
     (act?.path || null) === settings.sessionActive
@@ -312,7 +346,15 @@ function saveSession() {
   }
   settings.sessionTabs = paths;
   settings.sessionActive = act?.path || null;
+  settings.sessionState = nextState;
   persistSettings();
+}
+
+/** 光标移动 / 打字 / 滚动时低频写盘，避免每帧都存 */
+function scheduleSessionSave() {
+  if (!settings.restoreSession || restoringSession) return;
+  if (sessionTimer) clearTimeout(sessionTimer);
+  sessionTimer = window.setTimeout(() => saveSession(), 600);
 }
 
 async function restoreSession() {
@@ -321,15 +363,34 @@ async function restoreSession() {
   if (!paths.length) return;
   restoringSession = true;
   try {
+    const saved = settings.sessionState || {};
     for (const p of paths) {
       try {
         await openPath(p, true);
+        const t = activeTab();
+        const st = saved[norm(p)];
+        if (t && st) {
+          const len = t.state.doc.length;
+          const clamp = (n: number) => Math.max(0, Math.min(n, len));
+          view.dispatch({ selection: { anchor: clamp(st.anchor), head: clamp(st.head) } });
+          t.state = view.state;
+          t.scrollTop = st.scrollTop;
+        }
       } catch {}
     }
     const act = settings.sessionActive;
     if (act) {
       const t = app.tabs.find((x) => x.path && norm(x.path) === norm(act));
-      if (t) activate(t.id);
+      if (t) {
+        activate(t.id);
+        // 激活的正好是当前标签时 activate 会提前返回，这里兜底滚一次
+        const back = t.scrollTop || 0;
+        if (back > 0) {
+          window.setTimeout(() => {
+            if (app.activeId === t.id) view.scrollDOM.scrollTop = back;
+          }, 150);
+        }
+      }
     }
     for (const t of app.tabs) t.dirty = false;
     renderTabs();
@@ -1033,10 +1094,11 @@ function openSettings() {
       onclick: () => {
         (settings as any)[key] = !settings[key];
         sw.classList.toggle("on", !!(settings as any)[key]);
-        // 关掉会话恢复时，顺手把已经记下的标签清空，免得下次又冒出来
+        // 关掉会话恢复时，顺手把已经记下的标签、光标、滚动位置全清空
         if (key === "restoreSession" && !(settings as any)[key]) {
           settings.sessionTabs = [];
           settings.sessionActive = null;
+          settings.sessionState = {};
         }
         applySettings();
         persistSettings();
@@ -1082,7 +1144,7 @@ function openSettings() {
   }
   panelRow.appendChild(h("div", { class: "set-ctl" }, seg));
   body.appendChild(panelRow);
-  toggle("恢复上次的标签", "重开软件时，自动打开上次没关的文件", "restoreSession");
+  toggle("恢复上次的标签", "重开时连光标位置和滚动条一起还原", "restoreSession");
 
   const assocRow = h("div", { class: "set-row" });
   const assocDesc = h("div", { class: "d", text: "用 Markprose 打开 .md 文件" });
@@ -2568,6 +2630,7 @@ async function boot() {
   $("#wc-folder").onclick = () => void openFolderDialog();
 
   window.addEventListener("beforeunload", () => {
+    saveSession();
     persistSettings();
   });
 
