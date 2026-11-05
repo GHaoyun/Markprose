@@ -24,8 +24,7 @@ export interface Settings {
   sessionActive: string | null;
   sessionState: Record<string, { anchor: number; head: number; scrollTop: number }>;
   sessionDrafts: { content: string; anchor: number; head: number; scrollTop: number }[];
-  restoreSession: boolean;
-  restoreDrafts: boolean;
+  sessionMode: "off" | "ask" | "auto";
   openPanel: "files" | "outline" | "search";
 }
 
@@ -50,8 +49,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sessionActive: null,
   sessionState: {},
   sessionDrafts: [],
-  restoreSession: true,
-  restoreDrafts: true,
+  sessionMode: "off",
   openPanel: "outline",
 };
 

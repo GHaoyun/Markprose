@@ -77,7 +77,7 @@ import {
   sourceComp,
 } from "./editor/setup";
 import { buildToolbar, syncToolbar, type ToolbarState } from "./ui/toolbar";
-import { alertBox, choiceBox, confirmBox, folderSetupBox, mathBox, promptBox, saveChangesBox } from "./ui/dialog";
+import { alertBox, askRestoreBox, choiceBox, confirmBox, folderSetupBox, mathBox, promptBox, saveChangesBox } from "./ui/dialog";
 import { closeTablePanel } from "./ui/tablePanel";
 import { livePreview, mathHooks, refreshEffect } from "./editor/livepreview";
 import { docCtx } from "./editor/ctx";
@@ -306,10 +306,23 @@ let restoringSession = false;
 let draftsDiscarded = false;
 let sessionTimer: number | undefined;
 
+/** off / ask / auto；旧配置没这个字段时按 off 处理 */
+function sessionEnabled() {
+  return (settings.sessionMode || "off") !== "off";
+}
+
+function clearSessionData() {
+  settings.sessionTabs = [];
+  settings.sessionActive = null;
+  settings.sessionState = {};
+  settings.sessionDrafts = [];
+  persistSettings();
+}
+
 function saveSession() {
   if (restoringSession) return;
-  const onFiles = settings.restoreSession;
-  const onDrafts = settings.restoreDrafts;
+  const onFiles = sessionEnabled();
+  const onDrafts = onFiles;
   const paths = onFiles ? app.tabs.filter((t) => t.path).map((t) => t.path as string) : [];
   const act = onFiles ? app.tabs.find((t) => t.id === app.activeId) : undefined;
   const active = onFiles ? act?.path || null : null;
@@ -359,17 +372,15 @@ function saveSession() {
 
 /** 光标移动 / 打字 / 滚动时低频写盘，避免每帧都存 */
 function scheduleSessionSave() {
-  if ((!settings.restoreSession && !settings.restoreDrafts) || restoringSession) return;
+  if (!sessionEnabled() || restoringSession) return;
   if (sessionTimer) clearTimeout(sessionTimer);
   sessionTimer = window.setTimeout(() => saveSession(), 600);
 }
 
 async function restoreSession() {
-  const onFiles = settings.restoreSession;
-  const onDrafts = settings.restoreDrafts;
-  if (!onFiles && !onDrafts) return;
-  const paths = onFiles ? (settings.sessionTabs || []).filter(Boolean) : [];
-  const drafts = onDrafts ? settings.sessionDrafts || [] : [];
+  if (!sessionEnabled()) return;
+  const paths = (settings.sessionTabs || []).filter(Boolean);
+  const drafts = settings.sessionDrafts || [];
   if (!paths.length && !drafts.length) return;
   restoringSession = true;
   try {
@@ -423,6 +434,44 @@ async function restoreSession() {
   }
   // 有文件已经被删掉的话，把失效路径从会话里清掉
   saveSession();
+}
+
+/** 「每次询问」模式的开场动画：M 图标淡入 + 一条铜线展开 */
+function playBootSplash(): Promise<void> {
+  return new Promise((resolve) => {
+    const splash = h(
+      "div",
+      { class: "boot-splash" },
+      h(
+        "div",
+        { class: "boot-inner" },
+        h("div", { class: "boot-mark", text: "M" }),
+        h("div", { class: "boot-rule" })
+      )
+    );
+    document.body.appendChild(splash);
+    window.setTimeout(() => {
+      splash.remove();
+      resolve();
+    }, 900);
+  });
+}
+
+async function maybeRestoreSession() {
+  const mode = settings.sessionMode || "off";
+  const fileCount = (settings.sessionTabs || []).filter(Boolean).length;
+  const draftCount = (settings.sessionDrafts || []).length;
+  if (mode === "off" || (!fileCount && !draftCount)) {
+    if (mode === "off") clearSessionData();
+    return;
+  }
+  if (mode === "ask") {
+    await playBootSplash();
+    const ok = await askRestoreBox({ fileCount, draftCount, seconds: 5 });
+    // 这次不打开：数据留着，下次启动再问一遍
+    if (!ok) return;
+  }
+  await restoreSession();
 }
 
 async function closeTab(id: string) {
@@ -1109,7 +1158,7 @@ function openSettings() {
   );
   body.appendChild(dirRow);
 
-  const toggle = (label: string, desc: string, key: "autosave" | "typewriter" | "focusMode" | "lineNumbers" | "sidebar" | "restoreSession" | "restoreDrafts") => {
+  const toggle = (label: string, desc: string, key: "autosave" | "typewriter" | "focusMode" | "lineNumbers" | "sidebar") => {
     const row = h("div", { class: "set-row" });
     row.appendChild(h("div", { class: "set-label" }, h("div", { class: "t", text: label }), h("div", { class: "d", text: desc })));
     const sw = h("div", {
@@ -1118,14 +1167,6 @@ function openSettings() {
         (settings as any)[key] = !settings[key];
         sw.classList.toggle("on", !!(settings as any)[key]);
         // 关掉会话恢复时，顺手把已经记下的标签、光标、滚动位置全清空
-        if (key === "restoreSession" && !(settings as any)[key]) {
-          settings.sessionTabs = [];
-          settings.sessionActive = null;
-          settings.sessionState = {};
-        }
-        if (key === "restoreDrafts" && !(settings as any)[key]) {
-          settings.sessionDrafts = [];
-        }
         applySettings();
         persistSettings();
       },
@@ -1170,8 +1211,37 @@ function openSettings() {
   }
   panelRow.appendChild(h("div", { class: "set-ctl" }, seg));
   body.appendChild(panelRow);
-  toggle("恢复上次的标签", "重开时打开上次没关的文件，连光标、滚动条一起还原 · 下次启动生效", "restoreSession");
-  toggle("恢复未保存的草稿", "重开时找回没存过的「未命名」文档 · 下次启动生效", "restoreDrafts");
+  // 上次的内容：三态
+  const sessRow = h("div", { class: "set-row" });
+  sessRow.appendChild(
+    h("div", { class: "set-label" },
+      h("div", { class: "t", text: "上次的内容" }),
+      h("div", { class: "d", text: "重开时如何处理上次的标签和未保存草稿 · 下次启动生效" })
+    )
+  );
+  const sessSeg = h("div", { class: "seg" });
+  for (const [v, label] of [
+    ["off", "不保留"],
+    ["ask", "每次询问"],
+    ["auto", "自动打开"],
+  ] as const) {
+    sessSeg.appendChild(
+      h("button", {
+        class: "seg-btn" + (settings.sessionMode === v ? " on" : ""),
+        "data-v": v,
+        text: label,
+        onclick: () => {
+          settings.sessionMode = v;
+          if (v === "off") clearSessionData();
+          persistSettings();
+          sessSeg.querySelectorAll(".seg-btn").forEach((b) => b.classList.remove("on"));
+          (sessSeg.querySelector(`.seg-btn[data-v="${v}"]`) as HTMLElement | null)?.classList.add("on");
+        },
+      })
+    );
+  }
+  sessRow.appendChild(h("div", { class: "set-ctl" }, sessSeg));
+  body.appendChild(sessRow);
 
   const assocRow = h("div", { class: "set-row" });
   const assocDesc = h("div", { class: "d", text: "用 Markprose 打开 .md 文件" });
@@ -2693,9 +2763,9 @@ async function boot() {
     } catch {}
   }
 
-  // 恢复上次打开的标签
+  // 按设置决定：不保留 / 询问后打开 / 直接打开
   try {
-    await restoreSession();
+    await maybeRestoreSession();
   } catch {}
 
   // 欢迎页：按当前是否已有标签决定，避免把刚打开的文件盖住
