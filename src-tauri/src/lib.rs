@@ -3,6 +3,7 @@ use serde::Serialize;
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::Mutex;
 use std::time::Duration;
 use tauri::Emitter;
 use std::path::{Path, PathBuf};
@@ -617,6 +618,19 @@ fn reveal_in_explorer(path: String) -> Result<(), String> {
 const SINGLE_PORT: u16 = 41731;
 const HANDSHAKE: &[u8; 10] = b"MARKPROSE\n";
 
+/// 转交过来的文件先存这儿，前端启动后主动来取。
+/// 事件是一次性的，页面还没加载完时发出去就丢了 —— 同时双击两个文件
+/// 只打开一个，就是这个原因。
+static PENDING_FILES: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+#[tauri::command]
+fn take_pending_files() -> Vec<String> {
+    match PENDING_FILES.lock() {
+        Ok(mut q) => std::mem::take(&mut *q),
+        Err(e) => std::mem::take(&mut *e.into_inner()),
+    }
+}
+
 fn startup_arg_files() -> Vec<String> {
     std::env::args()
         .skip(1)
@@ -630,18 +644,24 @@ fn startup_arg_files() -> Vec<String> {
 
 /// 连上已有实例、握手确认、把文件列表发过去。返回 true 表示「已转交，本进程该退出」
 fn forward_to_running(files: &[String]) -> bool {
-    let mut s = match TcpStream::connect(("127.0.0.1", SINGLE_PORT)) {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
-    let _ = s.set_read_timeout(Some(Duration::from_secs(2)));
-    let mut hello = [0u8; 10];
-    // 端口被别的程序占用时不误判成自己的实例
-    if s.read_exact(&mut hello).is_err() || &hello != HANDSHAKE {
-        return false;
-    }
     let payload = serde_json::to_string(files).unwrap_or_else(|_| "[]".to_string());
-    s.write_all(payload.as_bytes()).is_ok()
+    // 两个文件同时双击时，第一个进程可能刚绑定完端口、监听线程还没起来，
+    // 所以连接失败要重试几下；但一旦连上了而握手不对，说明端口被别的
+    // 程序占着，立刻放弃，别把每个启动都拖上十几秒。
+    for _ in 0..12 {
+        match TcpStream::connect(("127.0.0.1", SINGLE_PORT)) {
+            Ok(mut s) => {
+                let _ = s.set_read_timeout(Some(Duration::from_secs(2)));
+                let mut hello = [0u8; 10];
+                if s.read_exact(&mut hello).is_err() || &hello != HANDSHAKE {
+                    return false;
+                }
+                return s.write_all(payload.as_bytes()).is_ok();
+            }
+            Err(_) => std::thread::sleep(Duration::from_millis(120)),
+        }
+    }
+    false
 }
 
 fn spawn_single_instance_listener(listener: TcpListener, handle: tauri::AppHandle) {
@@ -657,7 +677,12 @@ fn spawn_single_instance_listener(listener: TcpListener, handle: tauri::AppHandl
                 continue;
             }
             if let Ok(files) = serde_json::from_str::<Vec<String>>(&buf) {
-                let _ = handle.emit("open-files", files);
+                match PENDING_FILES.lock() {
+                    Ok(mut q) => q.extend(files),
+                    Err(e) => e.into_inner().extend(files),
+                }
+                // 只是「来取一下」的通知，文件内容一律走队列
+                let _ = handle.emit("pending-files", ());
             }
         }
     });
@@ -689,6 +714,7 @@ pub fn run() {
             default_save_dir,
             list_fonts,
             startup_files,
+            take_pending_files,
             register_file_assoc,
             is_default_app,
             set_default_app,

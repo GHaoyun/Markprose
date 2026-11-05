@@ -59,6 +59,9 @@ export const listFonts = () => invoke<string[]>("list_fonts");
 /** 启动时命令行带进来的文件（拖到 exe 图标上打开） */
 export const startupFiles = () => invoke<string[]>("startup_files");
 
+/** 取走「第二个进程转交过来」的文件（取完即清空） */
+export const takePendingFiles = () => invoke<string[]>("take_pending_files");
+
 /** 把当前程序注册进「打开方式」列表 */
 export const registerFileAssoc = () => invoke<void>("register_file_assoc");
 
@@ -398,6 +401,11 @@ async function mockInvoke<T>(cmd: string, args: any): Promise<T> {
       return out("/demo");
     case "startup_files":
       return out(JSON.parse(localStorage.getItem("moke.startup") || "[]"));
+    case "take_pending_files": {
+      const pending = JSON.parse(localStorage.getItem("moke.pending") || "[]");
+      localStorage.removeItem("moke.pending");
+      return out(pending);
+    }
     case "register_file_assoc":
       return out(undefined);
     case "is_default_app":

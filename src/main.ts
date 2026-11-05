@@ -36,6 +36,7 @@ import {
   searchInFolder,
   setDefaultApp,
   startupFiles,
+  takePendingFiles,
   writeText,
   type SearchHit,
   type TreeNode,
@@ -473,6 +474,21 @@ async function maybeRestoreSession() {
     if (!ok) return;
   }
   await restoreSession();
+}
+
+/** 取走别的实例转交来的文件。队列在 Rust 侧，页面没加载完也不会丢 */
+async function drainPendingFiles() {
+  try {
+    const files = await takePendingFiles();
+    if (!files.length) return;
+    for (const f of files) await openPath(f);
+    if (IS_TAURI) {
+      try {
+        const { getCurrentWindow } = await import("@tauri-apps/api/window");
+        await getCurrentWindow().setFocus();
+      } catch {}
+    }
+  } catch {}
 }
 
 async function closeTab(id: string) {
@@ -2654,17 +2670,12 @@ async function boot() {
   buildMenuBar();
   bindContextMenu();
 
-  // 单实例：后来双击的文件由第二个进程转交过来，直接在已开着的窗口加标签
+  // 单实例：启动期间转交过来的文件，事件没人接，主动去队列取一次
+  await drainPendingFiles();
   if (IS_TAURI) {
     try {
       const { listen } = await import("@tauri-apps/api/event");
-      await listen<string[]>("open-files", async (e) => {
-        for (const f of e.payload || []) await openPath(f);
-        try {
-          const { getCurrentWindow } = await import("@tauri-apps/api/window");
-          await getCurrentWindow().setFocus();
-        } catch {}
-      });
+      await listen("pending-files", () => void drainPendingFiles());
     } catch {}
   }
 
