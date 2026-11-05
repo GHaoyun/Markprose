@@ -46,6 +46,7 @@ import {
   THEMES,
   applySettings,
   cycleTheme,
+  flushSettings,
   loadSettings,
   persistSettings,
   settings,
@@ -1692,6 +1693,10 @@ async function doClose() {
       );
     }
   }
+  // 关窗前把会话状态真正写盘：不能只靠 beforeunload 的 350ms 防抖，
+  // 否则「上次把所有标签都关了」会被记成「上次还有标签」，下次启动乱弹窗
+  saveSession();
+  await flushSettings();
   if (IS_TAURI) {
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     await getCurrentWindow().destroy();
@@ -2648,6 +2653,20 @@ async function boot() {
   await bindWindow();
   buildMenuBar();
   bindContextMenu();
+
+  // 单实例：后来双击的文件由第二个进程转交过来，直接在已开着的窗口加标签
+  if (IS_TAURI) {
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      await listen<string[]>("open-files", async (e) => {
+        for (const f of e.payload || []) await openPath(f);
+        try {
+          const { getCurrentWindow } = await import("@tauri-apps/api/window");
+          await getCurrentWindow().setFocus();
+        } catch {}
+      });
+    } catch {}
+  }
 
   // 启动时把当前侧栏面板渲染一次，否则「文件」底下是空的，切一次面板才出来
   switchPanel(($(".sb-tab.active") as HTMLElement | null)?.dataset.panel || "files");

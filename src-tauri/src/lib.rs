@@ -1,6 +1,10 @@
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use serde::Serialize;
 use std::fs;
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
+use std::time::Duration;
+use tauri::Emitter;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use walkdir::WalkDir;
@@ -609,8 +613,63 @@ fn reveal_in_explorer(path: String) -> Result<(), String> {
     }
 }
 
+/* ---------- 单实例：第二个进程把文件转交给已有窗口后直接退出 ---------- */
+const SINGLE_PORT: u16 = 41731;
+const HANDSHAKE: &[u8; 10] = b"MARKPROSE\n";
+
+fn startup_arg_files() -> Vec<String> {
+    std::env::args()
+        .skip(1)
+        .filter(|a| !a.starts_with('-'))
+        .filter(|a| {
+            let p = PathBuf::from(a);
+            p.is_file() && is_text_file(&p)
+        })
+        .collect()
+}
+
+/// 连上已有实例、握手确认、把文件列表发过去。返回 true 表示「已转交，本进程该退出」
+fn forward_to_running(files: &[String]) -> bool {
+    let mut s = match TcpStream::connect(("127.0.0.1", SINGLE_PORT)) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    let _ = s.set_read_timeout(Some(Duration::from_secs(2)));
+    let mut hello = [0u8; 10];
+    // 端口被别的程序占用时不误判成自己的实例
+    if s.read_exact(&mut hello).is_err() || &hello != HANDSHAKE {
+        return false;
+    }
+    let payload = serde_json::to_string(files).unwrap_or_else(|_| "[]".to_string());
+    s.write_all(payload.as_bytes()).is_ok()
+}
+
+fn spawn_single_instance_listener(listener: TcpListener, handle: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let mut s = match stream {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+            let _ = s.write_all(HANDSHAKE);
+            let mut buf = String::new();
+            if s.read_to_string(&mut buf).is_err() {
+                continue;
+            }
+            if let Ok(files) = serde_json::from_str::<Vec<String>>(&buf) {
+                let _ = handle.emit("open-files", files);
+            }
+        }
+    });
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 绑得上 = 第一个实例；绑不上 = 已经有实例在跑（或端口被别的程序占用）
+    let listener = TcpListener::bind(("127.0.0.1", SINGLE_PORT)).ok();
+    if listener.is_none() && forward_to_running(&startup_arg_files()) {
+        return;
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
@@ -636,13 +695,16 @@ pub fn run() {
             open_path,
             reveal_in_explorer
         ])
-        .setup(|app| {
+        .setup(move |app| {
             // 无边框窗口不会自动带图标，这里显式设一次，任务栏才会显示新图标
             use tauri::Manager;
             if let Some(icon) = app.default_window_icon().cloned() {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.set_icon(icon);
                 }
+            }
+            if let Some(l) = listener {
+                spawn_single_instance_listener(l, app.handle().clone());
             }
             Ok(())
         })

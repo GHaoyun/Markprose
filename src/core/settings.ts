@@ -88,6 +88,17 @@ export function persistSettings() {
   }, 350);
 }
 
+/** 关窗前立即落盘：防抖那 350ms 来不及等到 destroy() */
+export async function flushSettings() {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = undefined;
+  }
+  try {
+    await saveSettingsRaw(JSON.stringify(settings));
+  } catch {}
+}
+
 export function applySettings() {
   const html = document.documentElement;
   html.dataset.theme = settings.theme;

@@ -435,61 +435,52 @@ export function mathBox(initial = "", startBlock = true): Promise<MathResult | n
 }
 
 
-/** 启动询问框：倒计时结束自动关闭，右上角 × 可提前关掉，返回是否要打开 */
+/** 启动询问：底部一条小提示，鼠标移上去才出现 ×，右侧一个环形倒计时 */
 export function askRestoreBox(opts: {
   fileCount: number;
   draftCount: number;
   seconds?: number;
 }): Promise<boolean> {
   const total = Math.max(1, opts.seconds ?? 5);
+  const CIRC = 2 * Math.PI * 9;
   return new Promise((resolve) => {
     const parts: string[] = [];
     if (opts.fileCount) parts.push(`${opts.fileCount} 个标签`);
-    if (opts.draftCount) parts.push(`${opts.draftCount} 个未保存草稿`);
-    const message = `上次关闭时还有 ${parts.join(" 和 ") || "一些内容"}。要打开吗？`;
+    if (opts.draftCount) parts.push(`${opts.draftCount} 个草稿`);
+    const text = `上次还有 ${parts.join(" 和 ") || "一些内容"}`;
 
     const doneRef: { fn?: (v: boolean) => void } = {};
-    const body = h("div", { class: "dlg-body", text: message });
-    const bar = h("div", { class: "ask-bar" });
-    const hint = h("div", { class: "ask-hint", text: `${total} 秒后自动关闭` });
-    const x = h("button", {
-      class: "ask-x",
-      title: "关闭",
-      html: '<svg viewBox="0 0 12 12" width="11" height="11"><line x1="2.8" y1="2.8" x2="9.2" y2="9.2"/><line x1="9.2" y1="2.8" x2="2.8" y2="9.2"/></svg>',
-      onclick: () => doneRef.fn?.(false),
+    const ringBox = h("span", {
+      class: "ask-ring",
+      html: '<svg viewBox="0 0 24 24" width="20" height="20"><circle class="ask-ring-bg" cx="12" cy="12" r="9"/><circle class="ask-ring-fg" cx="12" cy="12" r="9"/></svg>',
     });
-    const no = h("button", { class: "dlg-btn", text: "不打开", onclick: () => doneRef.fn?.(false) });
-    const yes = h("button", { class: "dlg-btn primary", text: "打开", onclick: () => doneRef.fn?.(true) });
-
-    const el = host();
-    el.innerHTML = "";
-    const box = h(
+    const toast = h(
       "div",
-      { class: "dlg ask-restore", onmousedown: (e: MouseEvent) => e.stopPropagation() },
-      x,
-      h(
-        "div",
-        { class: "dlg-head" },
-        h("div", { class: "dlg-ico", html: ICON_INFO }),
-        h("div", { class: "dlg-title", text: "恢复上次的内容" })
-      ),
-      body,
-      h("div", { class: "dlg-actions" }, no, yes),
-      h("div", { class: "ask-timer" }, bar),
-      hint
+      { class: "ask-toast" },
+      h("span", { class: "ask-toast-text", text }),
+      h("button", { class: "ask-toast-open", text: "打开", onclick: () => doneRef.fn?.(true) }),
+      ringBox,
+      h("button", {
+        class: "ask-toast-x",
+        title: "关闭",
+        html: '<svg viewBox="0 0 12 12" width="9" height="9"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg>',
+        onclick: () => doneRef.fn?.(false),
+      })
     );
-    el.appendChild(box);
-    el.classList.add("show");
+    document.body.appendChild(toast);
+    const ring = toast.querySelector(".ask-ring-fg") as SVGCircleElement | null;
+    if (ring) {
+      ring.style.strokeDasharray = String(CIRC);
+      ring.style.strokeDashoffset = "0";
+    }
 
     let finished = false;
     let timer: number | undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        e.preventDefault();
         e.stopPropagation();
         doneRef.fn?.(false);
       } else if (e.key === "Enter") {
-        e.preventDefault();
         e.stopPropagation();
         doneRef.fn?.(true);
       }
@@ -499,23 +490,16 @@ export function askRestoreBox(opts: {
       finished = true;
       if (timer) clearInterval(timer);
       document.removeEventListener("keydown", onKey, true);
-      el.onmousedown = null;
-      close();
+      toast.remove();
       resolve(v);
-    };
-    el.onmousedown = (e) => {
-      if (e.target === el) doneRef.fn?.(false);
     };
     document.addEventListener("keydown", onKey, true);
 
     const started = Date.now();
-    bar.style.width = "100%";
     timer = window.setInterval(() => {
       const left = Math.max(0, total - (Date.now() - started) / 1000);
-      bar.style.width = `${(left / total) * 100}%`;
-      hint.textContent = `${Math.ceil(left)} 秒后自动关闭`;
+      if (ring) ring.style.strokeDashoffset = String(CIRC * (1 - left / total));
       if (left <= 0) doneRef.fn?.(false);
     }, 100);
-    (yes as HTMLElement).focus();
   });
 }
