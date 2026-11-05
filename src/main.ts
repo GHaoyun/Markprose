@@ -301,66 +301,76 @@ async function openPath(path: string, silent = false) {
   }
 }
 
-/* ---------- 会话恢复：标签、光标、滚动位置都带回来 ---------- */
+/* ---------- 会话恢复：标签、光标、滚动位置、未保存草稿 ---------- */
 let restoringSession = false;
+let draftsDiscarded = false;
 let sessionTimer: number | undefined;
 
 function saveSession() {
   if (restoringSession) return;
-  if (!settings.restoreSession) {
-    if (
-      settings.sessionTabs.length ||
-      settings.sessionActive ||
-      Object.keys(settings.sessionState || {}).length
-    ) {
-      settings.sessionTabs = [];
-      settings.sessionActive = null;
-      settings.sessionState = {};
-      persistSettings();
-    }
-    return;
-  }
-  const paths = app.tabs.filter((t) => t.path).map((t) => t.path as string);
-  const act = app.tabs.find((t) => t.id === app.activeId);
+  const onFiles = settings.restoreSession;
+  const onDrafts = settings.restoreDrafts;
+  const paths = onFiles ? app.tabs.filter((t) => t.path).map((t) => t.path as string) : [];
+  const act = onFiles ? app.tabs.find((t) => t.id === app.activeId) : undefined;
+  const active = onFiles ? act?.path || null : null;
 
   const nextState: Record<string, { anchor: number; head: number; scrollTop: number }> = {};
-  for (const t of app.tabs) {
-    if (!t.path) continue;
-    const sel = t.state.selection.main;
-    nextState[norm(t.path)] = {
-      anchor: sel.anchor,
-      head: sel.head,
-      scrollTop: Math.round(t.id === app.activeId ? view.scrollDOM.scrollTop : t.scrollTop || 0),
-    };
+  const nextDrafts: { content: string; anchor: number; head: number; scrollTop: number }[] = [];
+  if ((onFiles || onDrafts) && !draftsDiscarded) {
+    for (const t of app.tabs) {
+      const sel = t.state.selection.main;
+      const scrollTop = Math.round(
+        t.id === app.activeId ? view.scrollDOM.scrollTop : t.scrollTop || 0
+      );
+      if (t.path) {
+        if (onFiles) nextState[norm(t.path)] = { anchor: sel.anchor, head: sel.head, scrollTop };
+      } else {
+        if (!onDrafts) continue;
+        const text = t.state.doc.toString();
+        // 空草稿不存；单个最多 200KB、总数最多 20 个，别把配置撑爆
+        if (!text || nextDrafts.length >= 20) continue;
+        nextDrafts.push({
+          content: text.slice(0, 200_000),
+          anchor: sel.anchor,
+          head: sel.head,
+          scrollTop,
+        });
+      }
+    }
   }
 
-  const old = settings.sessionState || {};
-  // 光标 / 滚动也参与比较：没变化就不写盘，变了才落盘
+  const oldState = settings.sessionState || {};
+  const oldDrafts = settings.sessionDrafts || [];
   if (
-    JSON.stringify(nextState) === JSON.stringify(old) &&
+    JSON.stringify(nextState) === JSON.stringify(oldState) &&
+    JSON.stringify(nextDrafts) === JSON.stringify(oldDrafts) &&
     paths.length === settings.sessionTabs.length &&
     paths.every((p, i) => p === settings.sessionTabs[i]) &&
-    (act?.path || null) === settings.sessionActive
+    active === settings.sessionActive
   ) {
     return;
   }
   settings.sessionTabs = paths;
-  settings.sessionActive = act?.path || null;
+  settings.sessionActive = active;
   settings.sessionState = nextState;
+  settings.sessionDrafts = nextDrafts;
   persistSettings();
 }
 
 /** 光标移动 / 打字 / 滚动时低频写盘，避免每帧都存 */
 function scheduleSessionSave() {
-  if (!settings.restoreSession || restoringSession) return;
+  if ((!settings.restoreSession && !settings.restoreDrafts) || restoringSession) return;
   if (sessionTimer) clearTimeout(sessionTimer);
   sessionTimer = window.setTimeout(() => saveSession(), 600);
 }
 
 async function restoreSession() {
-  if (!settings.restoreSession) return;
-  const paths = (settings.sessionTabs || []).filter(Boolean);
-  if (!paths.length) return;
+  const onFiles = settings.restoreSession;
+  const onDrafts = settings.restoreDrafts;
+  if (!onFiles && !onDrafts) return;
+  const paths = onFiles ? (settings.sessionTabs || []).filter(Boolean) : [];
+  const drafts = onDrafts ? settings.sessionDrafts || [] : [];
+  if (!paths.length && !drafts.length) return;
   restoringSession = true;
   try {
     const saved = settings.sessionState || {};
@@ -378,6 +388,18 @@ async function restoreSession() {
         }
       } catch {}
     }
+
+    // 没有路径的「未命名」标签：内容原样还原，仍然标成未保存
+    for (const d of drafts) {
+      const t = newTab(d.content);
+      t.dirty = true;
+      const len = t.state.doc.length;
+      const clamp = (n: number) => Math.max(0, Math.min(n, len));
+      view.dispatch({ selection: { anchor: clamp(d.anchor), head: clamp(d.head) } });
+      t.state = view.state;
+      t.scrollTop = d.scrollTop;
+    }
+
     const act = settings.sessionActive;
     if (act) {
       const t = app.tabs.find((x) => x.path && norm(x.path) === norm(act));
@@ -392,7 +414,8 @@ async function restoreSession() {
         }
       }
     }
-    for (const t of app.tabs) t.dirty = false;
+    // 草稿保持 dirty，只有落盘的文件才算已保存
+    for (const t of app.tabs) if (t.path) t.dirty = false;
     renderTabs();
     updateTitlebar();
   } finally {
@@ -1086,7 +1109,7 @@ function openSettings() {
   );
   body.appendChild(dirRow);
 
-  const toggle = (label: string, desc: string, key: "autosave" | "typewriter" | "focusMode" | "lineNumbers" | "sidebar" | "restoreSession") => {
+  const toggle = (label: string, desc: string, key: "autosave" | "typewriter" | "focusMode" | "lineNumbers" | "sidebar" | "restoreSession" | "restoreDrafts") => {
     const row = h("div", { class: "set-row" });
     row.appendChild(h("div", { class: "set-label" }, h("div", { class: "t", text: label }), h("div", { class: "d", text: desc })));
     const sw = h("div", {
@@ -1099,6 +1122,9 @@ function openSettings() {
           settings.sessionTabs = [];
           settings.sessionActive = null;
           settings.sessionState = {};
+        }
+        if (key === "restoreDrafts" && !(settings as any)[key]) {
+          settings.sessionDrafts = [];
         }
         applySettings();
         persistSettings();
@@ -1144,7 +1170,8 @@ function openSettings() {
   }
   panelRow.appendChild(h("div", { class: "set-ctl" }, seg));
   body.appendChild(panelRow);
-  toggle("恢复上次的标签", "重开时连光标位置和滚动条一起还原", "restoreSession");
+  toggle("恢复上次的标签", "重开时打开上次没关的文件，连光标、滚动条一起还原 · 下次启动生效", "restoreSession");
+  toggle("恢复未保存的草稿", "重开时找回没存过的「未命名」文档 · 下次启动生效", "restoreDrafts");
 
   const assocRow = h("div", { class: "set-row" });
   const assocDesc = h("div", { class: "d", text: "用 Markprose 打开 .md 文件" });
@@ -1575,6 +1602,10 @@ async function doClose() {
       ],
     });
     if (choice === null || choice === "cancel") return;
+    if (choice === "discard") {
+      draftsDiscarded = true;
+      saveSession();
+    }
     if (choice === "save") {
       if (autosaveTimer) clearTimeout(autosaveTimer);
       toast("正在保存…", "info", 1500);
