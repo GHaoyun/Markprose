@@ -468,8 +468,6 @@ async function maybeRestoreSession() {
     return;
   }
   if (mode === "ask") {
-    // 动画代码保留，但默认不播；要播得在设置里把开关打开
-    if (settings.bootAnimation) await playBootSplash();
     const ok = await askRestoreBox({ fileCount, draftCount, seconds: 5 });
     // 这次不打开：数据留着，下次启动再问一遍
     if (!ok) return;
@@ -1008,9 +1006,9 @@ function openSettings() {
     body.appendChild(row);
   };
 
-  slider("正文字号", "编辑区文字大小", "fontSize", 13, 24, 0.5, (v) => v + "px");
-  slider("行高", "行间距，越大越松散", "lineHeight", 1.4, 2.4, 0.02, (v) => v.toFixed(2));
-  slider("内容宽度", "正文栏的最大宽度", "contentWidth", 560, 1100, 10, (v) => v + "px");
+  slider("正文字号", "文字大小", "fontSize", 13, 24, 0.5, (v) => v + "px");
+  slider("行高", "行与行之间的距离", "lineHeight", 1.4, 2.4, 0.02, (v) => v.toFixed(2));
+  slider("内容宽度", "正文一行的宽度", "contentWidth", 560, 1100, 10, (v) => v + "px");
 
   const fontRow = h("div", {
     class: "set-row",
@@ -1023,7 +1021,7 @@ function openSettings() {
       h("div", { class: "t", text: "正文字体" }),
       h("div", {
         class: "d",
-        text: "系统已安装的字体",
+        text: "从本机字体中选择",
       })
     )
   );
@@ -1065,7 +1063,7 @@ function openSettings() {
           settings.fontFamily = value;
           syncFontTrigger();
           applySettings();
-          persistSettings();
+          void flushSettings();
           renderFontList();
           closeFontPanel();
         },
@@ -1136,10 +1134,10 @@ function openSettings() {
     h(
       "div",
       { class: "set-label" },
-      h("div", { class: "t", text: "自动保存位置" }),
+      h("div", { class: "t", text: "文档存放位置" }),
       h("div", {
         class: "d",
-        text: "新文档和图片存放位置",
+        text: "新建文档和粘贴图片的默认位置",
       })
     )
   );
@@ -1160,7 +1158,7 @@ function openSettings() {
           if (!d) return;
           settings.saveDir = norm(d);
           dirVal.textContent = settings.saveDir;
-          persistSettings();
+          void flushSettings();
         },
       }),
       h("button", {
@@ -1169,7 +1167,7 @@ function openSettings() {
         onclick: () => {
           settings.saveDir = "";
           dirVal.textContent = "（默认：文档\\Markprose）";
-          persistSettings();
+          void flushSettings();
         },
       })
     )
@@ -1184,27 +1182,26 @@ function openSettings() {
       onclick: () => {
         (settings as any)[key] = !settings[key];
         sw.classList.toggle("on", !!(settings as any)[key]);
-        // 关掉会话恢复时，顺手把已经记下的标签、光标、滚动位置全清空
         applySettings();
-        persistSettings();
+        void flushSettings();
       },
     });
     row.appendChild(h("div", { class: "set-ctl" }, sw));
     body.appendChild(row);
   };
 
-  toggle("自动保存", "停止输入约 1.6 秒后自动写回磁盘", "autosave");
-  toggle("打字机模式", "光标所在行始终保持在屏幕中部", "typewriter");
-  toggle("专注模式", "淡化非当前段落，只看眼前一句", "focusMode");
-  toggle("显示行号", "左侧显示行号栏", "lineNumbers");
-  toggle("显示侧边栏", "Ctrl + \\ 快速开关", "sidebar");
+  toggle("自动保存", "停止输入后自动保存", "autosave");
+  toggle("打字机模式", "输入时光标保持在屏幕中间", "typewriter");
+  toggle("专注模式", "只突出当前段落", "focusMode");
+  toggle("显示行号", "在左侧显示行号", "lineNumbers");
+  toggle("显示侧边栏", "快捷键 Ctrl + \\", "sidebar");
 
   // 打开文件后侧边栏自动切到哪一栏
   const panelRow = h("div", { class: "set-row" });
   panelRow.appendChild(
     h("div", { class: "set-label" },
       h("div", { class: "t", text: "打开文件后显示" }),
-      h("div", { class: "d", text: "侧边栏自动切到这一栏" })
+      h("div", { class: "d", text: "打开文件时的默认侧栏" })
     )
   );
   const seg = h("div", { class: "seg" });
@@ -1220,7 +1217,7 @@ function openSettings() {
         text: label,
         onclick: () => {
           settings.openPanel = v;
-          persistSettings();
+          void flushSettings();
           seg.querySelectorAll(".seg-btn").forEach((b) => b.classList.remove("on"));
           (seg.querySelector(`.seg-btn[data-v="${v}"]`) as HTMLElement | null)?.classList.add("on");
         },
@@ -1234,7 +1231,7 @@ function openSettings() {
   sessRow.appendChild(
     h("div", { class: "set-label" },
       h("div", { class: "t", text: "上次的内容" }),
-      h("div", { class: "d", text: "重开时如何处理上次的标签和未保存草稿 · 下次启动生效" })
+      h("div", { class: "d", text: "重开软件时是否恢复上次打开的文档" })
     )
   );
   const sessSeg = h("div", { class: "seg" });
@@ -1251,7 +1248,7 @@ function openSettings() {
         onclick: () => {
           settings.sessionMode = v;
           if (v === "off") clearSessionData();
-          persistSettings();
+          void flushSettings();
           sessSeg.querySelectorAll(".seg-btn").forEach((b) => b.classList.remove("on"));
           (sessSeg.querySelector(`.seg-btn[data-v="${v}"]`) as HTMLElement | null)?.classList.add("on");
         },
@@ -1260,10 +1257,10 @@ function openSettings() {
   }
   sessRow.appendChild(h("div", { class: "set-ctl" }, sessSeg));
   body.appendChild(sessRow);
-  toggle("启动动画", "仅在「每次询问」模式下生效 · 默认关闭，动画代码保留备用", "bootAnimation");
+  toggle("启动动画", "启动时显示开场画面", "bootAnimation");
 
   const assocRow = h("div", { class: "set-row" });
-  const assocDesc = h("div", { class: "d", text: "用 Markprose 打开 .md 文件" });
+  const assocDesc = h("div", { class: "d", text: "双击 .md 文件时使用 Markprose" });
   assocRow.appendChild(
     h("div", { class: "set-label" },
       h("div", { class: "t", text: "默认打开方式" }),
@@ -2644,6 +2641,8 @@ function bindContextMenu() {
 /* ================= 启动 ================= */
 async function boot() {
   await loadSettings();
+  // 启动动画只看自己的开关，跟会话模式、有没有上次内容都无关
+  if (settings.bootAnimation) void playBootSplash();
   // 还没确认过保存位置的老用户，也走一次引导（只弹一次）
   const needDirSetup = IS_TAURI && !settings.saveDirChosen;
   // 自动保存改为默认关闭：关窗口/关标签时改成明确问「保存 / 不保存 / 取消」
