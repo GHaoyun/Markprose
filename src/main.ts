@@ -468,7 +468,8 @@ async function maybeRestoreSession() {
     return;
   }
   if (mode === "ask") {
-    await playBootSplash();
+    // 动画代码保留，但默认不播；要播得在设置里把开关打开
+    if (settings.bootAnimation) await playBootSplash();
     const ok = await askRestoreBox({ fileCount, draftCount, seconds: 5 });
     // 这次不打开：数据留着，下次启动再问一遍
     if (!ok) return;
@@ -1175,7 +1176,7 @@ function openSettings() {
   );
   body.appendChild(dirRow);
 
-  const toggle = (label: string, desc: string, key: "autosave" | "typewriter" | "focusMode" | "lineNumbers" | "sidebar") => {
+  const toggle = (label: string, desc: string, key: "autosave" | "typewriter" | "focusMode" | "lineNumbers" | "sidebar" | "bootAnimation") => {
     const row = h("div", { class: "set-row" });
     row.appendChild(h("div", { class: "set-label" }, h("div", { class: "t", text: label }), h("div", { class: "d", text: desc })));
     const sw = h("div", {
@@ -1259,6 +1260,7 @@ function openSettings() {
   }
   sessRow.appendChild(h("div", { class: "set-ctl" }, sessSeg));
   body.appendChild(sessRow);
+  toggle("启动动画", "仅在「每次询问」模式下生效 · 默认关闭，动画代码保留备用", "bootAnimation");
 
   const assocRow = h("div", { class: "set-row" });
   const assocDesc = h("div", { class: "d", text: "用 Markprose 打开 .md 文件" });

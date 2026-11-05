@@ -25,6 +25,7 @@ export interface Settings {
   sessionState: Record<string, { anchor: number; head: number; scrollTop: number }>;
   sessionDrafts: { content: string; anchor: number; head: number; scrollTop: number }[];
   sessionMode: "off" | "ask" | "auto";
+  bootAnimation: boolean;
   openPanel: "files" | "outline" | "search";
 }
 
@@ -50,6 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sessionState: {},
   sessionDrafts: [],
   sessionMode: "off",
+  bootAnimation: false,
   openPanel: "outline",
 };
 
