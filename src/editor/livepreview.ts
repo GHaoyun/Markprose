@@ -1059,8 +1059,14 @@ export function buildDecorations(view: EditorView): DecorationSet {
         }
         if (name === "HorizontalRule") {
           if (!touching(from, to)) {
-            replaced.push([from, to]);
-            decos.push(Decoration.replace({ widget: new HrWidget() }).range(from, to));
+            // 必须用块级 widget 并覆盖整行：行内 widget 会被行高再撑一次，
+            // 分割线下面就会多出一整行空白
+            const ln = doc.lineAt(from);
+            replaced.push([ln.from, ln.to]);
+            // 行内替换 + 行装饰把行高压掉，否则 CodeMirror 插在 widget
+            // 前后的占位元素各占一整行高度，分割线下面就多出一行空白
+            decos.push(Decoration.line({ class: "cm-hr-line" }).range(ln.from));
+            decos.push(Decoration.replace({ widget: new HrWidget() }).range(ln.from, ln.to));
           }
           return false;
         }

@@ -467,9 +467,17 @@ html[data-theme="midnight"] .cm-tok-type {
 }
 
 /* ============ 分隔线 ============ */
+/* 分割线整行：压掉行高，让 widget 自己决定高度 */
+.cm-hr-line {
+  line-height: 0 !important;
+}
+.cm-hr-line .cm-widgetBuffer {
+  display: none;
+}
 .cm-hr-widget {
   display: block;
   padding: 12px 0;
+  line-height: 0;
 }
 .cm-hr-widget::after {
   content: "";
