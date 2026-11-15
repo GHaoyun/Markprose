@@ -614,6 +614,101 @@ fn reveal_in_explorer(path: String) -> Result<(), String> {
     }
 }
 
+/* ---------- 多窗口：窗口矩形 / 新建窗口 / 标签交接 ---------- */
+#[derive(Serialize)]
+struct WinRect {
+    label: String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+/// 逻辑像素坐标，前端可直接和 dragend 的 screenX/screenY 比较
+#[tauri::command]
+fn window_rects(app: tauri::AppHandle) -> Vec<WinRect> {
+    use tauri::Manager;
+    app.webview_windows()
+        .iter()
+        .filter_map(|(label, w)| {
+            let pos = w.outer_position().ok()?;
+            let size = w.outer_size().ok()?;
+            let scale = w.scale_factor().unwrap_or(1.0);
+            Some(WinRect {
+                label: label.clone(),
+                x: pos.x as f64 / scale,
+                y: pos.y as f64 / scale,
+                width: size.width as f64 / scale,
+                height: size.height as f64 / scale,
+            })
+        })
+        .collect()
+}
+
+/// 拆窗口时先把标签内容暂存，新窗口启动后按 label 取走
+static HANDOFFS: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
+
+#[tauri::command]
+fn stash_handoff(label: String, payload: String) {
+    match HANDOFFS.lock() {
+        Ok(mut q) => q.push((label, payload)),
+        Err(e) => e.into_inner().push((label, payload)),
+    }
+}
+
+#[tauri::command]
+fn take_handoff(label: String) -> Option<String> {
+    let mut q = match HANDOFFS.lock() {
+        Ok(q) => q,
+        Err(e) => e.into_inner(),
+    };
+    let idx = q.iter().position(|(l, _)| l == &label)?;
+    Some(q.remove(idx).1)
+}
+
+#[tauri::command]
+async fn open_new_window(
+    app: tauri::AppHandle,
+    label: String,
+    x: Option<f64>,
+    y: Option<f64>,
+) -> Result<(), String> {
+    let mut builder =
+        tauri::WebviewWindowBuilder::new(&app, &label, tauri::WebviewUrl::App("index.html".into()))
+            .title("Markprose")
+            .inner_size(1100.0, 760.0)
+            .min_inner_size(760.0, 500.0)
+            .decorations(false);
+    // 出现在鼠标松开的位置附近，而不是和原窗口叠在一起
+    builder = match (x, y) {
+        (Some(x), Some(y)) => builder.position(x, y),
+        _ => builder.center(),
+    };
+    builder.build().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// 直接把标签交给目标窗口：调用它页面里的接收函数，绕开事件系统
+#[tauri::command]
+fn move_tab(app: tauri::AppHandle, target: String, payload: String) -> Result<(), String> {
+    use tauri::Manager;
+    let w = app.get_webview_window(&target).ok_or("目标窗口不存在")?;
+    let js = format!(
+        "window.__markproseAcceptTab && window.__markproseAcceptTab({})",
+        payload
+    );
+    w.eval(&js).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn close_window(app: tauri::AppHandle, label: String) -> Result<(), String> {
+    use tauri::Manager;
+    if let Some(w) = app.get_webview_window(&label) {
+        let _ = w.close();
+    }
+    Ok(())
+}
+
 /* ---------- 单实例：第二个进程把文件转交给已有窗口后直接退出 ---------- */
 const SINGLE_PORT: u16 = 41731;
 const HANDSHAKE: &[u8; 10] = b"MARKPROSE\n";
@@ -715,6 +810,12 @@ pub fn run() {
             list_fonts,
             startup_files,
             take_pending_files,
+            window_rects,
+            stash_handoff,
+            take_handoff,
+            open_new_window,
+            move_tab,
+            close_window,
             register_file_assoc,
             is_default_app,
             set_default_app,

@@ -23,9 +23,11 @@ export interface Settings {
   sessionTabs: string[];
   sessionActive: string | null;
   sessionState: Record<string, { anchor: number; head: number; scrollTop: number }>;
-  sessionDrafts: { content: string; anchor: number; head: number; scrollTop: number }[];
+  sessionDrafts: { content: string; anchor: number; head: number; scrollTop: number; label?: string }[];
   sessionMode: "off" | "ask" | "auto";
   bootAnimation: boolean;
+  tabDrag: boolean;
+  tabDragOut: boolean;
   openPanel: "files" | "outline" | "search";
 }
 
@@ -52,6 +54,8 @@ export const DEFAULT_SETTINGS: Settings = {
   sessionDrafts: [],
   sessionMode: "off",
   bootAnimation: false,
+  tabDrag: true,
+  tabDragOut: true,
   openPanel: "outline",
 };
 

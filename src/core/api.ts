@@ -62,6 +62,24 @@ export const startupFiles = () => invoke<string[]>("startup_files");
 /** 取走「第二个进程转交过来」的文件（取完即清空） */
 export const takePendingFiles = () => invoke<string[]>("take_pending_files");
 
+/* ================= 多窗口 ================= */
+export interface WinRect {
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export const windowRects = () => invoke<WinRect[]>("window_rects");
+export const stashHandoff = (label: string, payload: string) =>
+  invoke<void>("stash_handoff", { label, payload });
+export const takeHandoff = (label: string) => invoke<string | null>("take_handoff", { label });
+export const openNewWindow = (label: string, x?: number, y?: number) =>
+  invoke<void>("open_new_window", { label, x, y });
+export const moveTab = (target: string, payload: string) =>
+  invoke<void>("move_tab", { target, payload });
+
 /** 把当前程序注册进「打开方式」列表 */
 export const registerFileAssoc = () => invoke<void>("register_file_assoc");
 
@@ -401,6 +419,23 @@ async function mockInvoke<T>(cmd: string, args: any): Promise<T> {
       return out("/demo");
     case "startup_files":
       return out(JSON.parse(localStorage.getItem("moke.startup") || "[]"));
+    case "window_rects":
+      return out(JSON.parse(localStorage.getItem("moke.rects") || "[]"));
+    case "stash_handoff":
+      localStorage.setItem("moke.handoff", args.payload);
+      localStorage.setItem("moke.handoffLabel", args.label);
+      return out(undefined);
+    case "take_handoff": {
+      const v = localStorage.getItem("moke.handoff");
+      localStorage.removeItem("moke.handoff");
+      return out(v);
+    }
+    case "open_new_window":
+      localStorage.setItem("moke.newWindow", args.label);
+      return out(undefined);
+    case "move_tab":
+      localStorage.setItem("moke.dropTarget", args.target);
+      return out(undefined);
     case "take_pending_files": {
       const pending = JSON.parse(localStorage.getItem("moke.pending") || "[]");
       localStorage.removeItem("moke.pending");

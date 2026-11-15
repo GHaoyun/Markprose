@@ -35,8 +35,14 @@ import {
   registerFileAssoc,
   searchInFolder,
   setDefaultApp,
+  moveTab,
+  openNewWindow,
+  stashHandoff,
   startupFiles,
+  takeHandoff,
   takePendingFiles,
+  windowRects,
+  type WinRect,
   writeText,
   type SearchHit,
   type TreeNode,
@@ -94,6 +100,8 @@ interface Tab {
   savedAt: number;
   savedText: string;
   scrollTop: number;
+  /** 未命名标签的显示名，恢复草稿时保持不变 */
+  label?: string;
 }
 
 const app = {
@@ -153,11 +161,141 @@ function syncCurrent() {
   t.scrollTop = view.scrollDOM.scrollTop;
 }
 
+/* ================= 多窗口：标签拖拽 ================= */
+interface TabPayload {
+  path: string | null;
+  content: string;
+  dirty: boolean;
+  anchor: number;
+  head: number;
+  scrollTop: number;
+}
+
+let WIN_LABEL = "main";
+let dragTab: { id: string; startX: number; startY: number; payload: TabPayload } | null = null;
+
+async function detectWindowLabel(): Promise<string> {
+  if (!IS_TAURI) return "main";
+  try {
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    return getCurrentWindow().label || "main";
+  } catch {
+    return "main";
+  }
+}
+
+function tabPayloadOf(t: Tab): TabPayload {
+  const sel = t.state.selection.main;
+  return {
+    path: t.path,
+    content: t.state.doc.toString(),
+    dirty: t.dirty,
+    anchor: sel.anchor,
+    head: sel.head,
+    scrollTop: Math.round(t.id === app.activeId ? view.scrollDOM.scrollTop : t.scrollTop || 0),
+  };
+}
+
+/** 接住别的窗口送来的标签 */
+async function acceptTab(p: TabPayload) {
+  let t: Tab | null = null;
+  if (p.path) {
+    await openPath(p.path);
+    t = app.tabs.find((x) => x.path && norm(x.path) === norm(p.path as string)) || null;
+  } else {
+    t = newTab(p.content);
+  }
+  if (!t) return;
+  const len = t.state.doc.length;
+  const clamp = (n: number) => Math.max(0, Math.min(n, len));
+  const sel = { anchor: clamp(p.anchor), head: clamp(p.head) };
+  if (app.activeId === t.id) {
+    view.dispatch({ selection: sel });
+    t.state = view.state;
+    if (p.scrollTop > 0) {
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (app.activeId === t.id) view.scrollDOM.scrollTop = p.scrollTop;
+        })
+      );
+    }
+  } else {
+    t.state = t.state.update({ selection: sel }).state;
+  }
+  t.dirty = p.dirty;
+  t.scrollTop = p.scrollTop;
+  renderTabs();
+}
+
+// 供 Rust 侧 move_tab 直接调用
+(window as any).__markproseAcceptTab = (p: TabPayload) => void acceptTab(p);
+
+/** 标签已经被别的窗口接走：静默移除，不弹保存 */
+function removeTabSilently(id: string) {
+  const idx = app.tabs.findIndex((t) => t.id === id);
+  if (idx < 0) return;
+  app.tabs.splice(idx, 1);
+  if (app.activeId === id) {
+    const next = app.tabs[idx] || app.tabs[idx - 1] || null;
+    app.activeId = null;
+    if (next) {
+      activate(next.id);
+    } else {
+      view.setState(createState("", null));
+      syncWelcome();
+      refreshStatus();
+      updateTitlebar();
+    }
+  }
+  renderTabs();
+  saveSession();
+}
+
+/** 把标签送给另一个窗口：让 Rust 直接调用那个窗口的接收函数 */
+async function emitTabDrop(target: string, payload: TabPayload) {
+  await moveTab(target, JSON.stringify(payload));
+}
+
+async function handleTabDrop(d: NonNullable<typeof dragTab>, sx: number, sy: number) {
+  if (!settings.tabDrag) return;
+  let rects: WinRect[] = [];
+  try {
+    rects = await windowRects();
+  } catch {}
+  // 拿不到窗口位置就不动，免得误拆窗口
+  if (!rects.length) return;
+  const me = rects.find((r) => r.label === WIN_LABEL);
+  const target = rects.find(
+    (r) =>
+      r.label !== WIN_LABEL &&
+      sx >= r.x &&
+      sx <= r.x + r.width &&
+      sy >= r.y &&
+      sy <= r.y + r.height
+  );
+  if (target) {
+    try {
+      await emitTabDrop(target.label, d.payload);
+      removeTabSilently(d.id);
+    } catch {}
+    return;
+  }
+  // 还落在自己窗口里，什么都不做
+  if (me && sx >= me.x && sx <= me.x + me.width && sy >= me.y && sy <= me.y + me.height) return;
+  if (!settings.tabDragOut) return;
+  const label = "w" + Date.now().toString(36);
+  try {
+    await stashHandoff(label, JSON.stringify(d.payload));
+    await openNewWindow(label, Math.max(0, sx - 120), Math.max(0, sy - 30));
+    removeTabSilently(d.id);
+  } catch {}
+}
+
 function renderTabs() {
   const host = $("#tabs");
   host.innerHTML = "";
   for (const t of app.tabs) {
-    const title = t.path ? basename(t.path) : `未命名 ${t.id.slice(0, 3)}`;
+    const title = t.path ? basename(t.path) : t.label || `未命名 ${t.id.slice(0, 3)}`;
     const el = h(
       "div",
       {
@@ -167,6 +305,22 @@ function renderTabs() {
           (t.dirty ? " dirty" : ""),
         "data-id": t.id,
         title: t.path || title,
+        draggable: "true",
+        ondragstart: (e: DragEvent) => {
+          dragTab = { id: t.id, startX: e.screenX, startY: e.screenY, payload: tabPayloadOf(t) };
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", t.path || "untitled");
+          }
+        },
+        ondragend: (e: DragEvent) => {
+          const d = dragTab;
+          dragTab = null;
+          if (!d) return;
+          // 拖动距离太小当点击处理
+          if (Math.abs(e.screenX - d.startX) < 12 && Math.abs(e.screenY - d.startY) < 12) return;
+          void handleTabDrop(d, e.screenX, e.screenY);
+        },
         onmousedown: (e: MouseEvent) => {
           if (e.button === 1) {
             e.preventDefault();
@@ -256,11 +410,12 @@ function activate(id: string) {
   saveSession();
 }
 
-function newTab(content = "", path: string | null = null) {
+function newTab(content = "", path: string | null = null, label?: string) {
   syncCurrent();
   const t: Tab = {
     id: uid(),
     path,
+    label,
     state: createState(content, path),
     dirty: false,
     savedAt: Date.now(),
@@ -330,7 +485,13 @@ function saveSession() {
   const active = onFiles ? act?.path || null : null;
 
   const nextState: Record<string, { anchor: number; head: number; scrollTop: number }> = {};
-  const nextDrafts: { content: string; anchor: number; head: number; scrollTop: number }[] = [];
+  const nextDrafts: {
+    content: string;
+    anchor: number;
+    head: number;
+    scrollTop: number;
+    label?: string;
+  }[] = [];
   if ((onFiles || onDrafts) && !draftsDiscarded) {
     for (const t of app.tabs) {
       const sel = t.state.selection.main;
@@ -349,6 +510,7 @@ function saveSession() {
           anchor: sel.anchor,
           head: sel.head,
           scrollTop,
+          label: t.label || `未命名 ${t.id.slice(0, 3)}`,
         });
       }
     }
@@ -404,7 +566,7 @@ async function restoreSession() {
 
     // 没有路径的「未命名」标签：内容原样还原，仍然标成未保存
     for (const d of drafts) {
-      const t = newTab(d.content);
+      const t = newTab(d.content, null, d.label);
       t.dirty = true;
       const len = t.state.doc.length;
       const clamp = (n: number) => Math.max(0, Math.min(n, len));
@@ -1174,7 +1336,7 @@ function openSettings() {
   );
   body.appendChild(dirRow);
 
-  const toggle = (label: string, desc: string, key: "autosave" | "typewriter" | "focusMode" | "lineNumbers" | "sidebar" | "bootAnimation") => {
+  const toggle = (label: string, desc: string, key: "autosave" | "typewriter" | "focusMode" | "lineNumbers" | "sidebar" | "bootAnimation" | "tabDrag" | "tabDragOut") => {
     const row = h("div", { class: "set-row" });
     row.appendChild(h("div", { class: "set-label" }, h("div", { class: "t", text: label }), h("div", { class: "d", text: desc })));
     const sw = h("div", {
@@ -1258,6 +1420,8 @@ function openSettings() {
   sessRow.appendChild(h("div", { class: "set-ctl" }, sessSeg));
   body.appendChild(sessRow);
   toggle("启动动画", "启动时显示开场画面", "bootAnimation");
+  toggle("拖动标签", "把标签拖到另一个窗口即可合并", "tabDrag");
+  toggle("拖出新建窗口", "把标签拖到窗口外时新建一个窗口", "tabDragOut");
 
   const assocRow = h("div", { class: "set-row" });
   const assocDesc = h("div", { class: "d", text: "双击 .md 文件时使用 Markprose" });
@@ -2628,6 +2792,18 @@ function buildMenuBar() {
 function bindContextMenu() {
   // WebView2 自带的「返回 / 刷新 / 另存为 / 打印」一律屏蔽
   document.addEventListener("contextmenu", (e) => e.preventDefault());
+  // 别让 WebView2 露出浏览器那一套：刷新、打印、开发者工具
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      const k = e.key.toLowerCase();
+      if (e.key === "F5" || e.key === "F12" || (e.ctrlKey && (k === "r" || k === "p"))) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true
+  );
 
   // 编辑区里任意位置右键都出自家菜单，正文下方的留白也算
   $("#editor-host")?.addEventListener("contextmenu", (e) => {
@@ -2641,6 +2817,7 @@ function bindContextMenu() {
 /* ================= 启动 ================= */
 async function boot() {
   await loadSettings();
+  WIN_LABEL = await detectWindowLabel();
   // 启动动画只看自己的开关，跟会话模式、有没有上次内容都无关
   if (settings.bootAnimation) void playBootSplash();
   // 还没确认过保存位置的老用户，也走一次引导（只弹一次）
@@ -2671,12 +2848,22 @@ async function boot() {
   buildMenuBar();
   bindContextMenu();
 
-  // 单实例：启动期间转交过来的文件，事件没人接，主动去队列取一次
-  await drainPendingFiles();
+  // 单实例：只有主窗口去取转交过来的文件，别的窗口取会重复打开
+  if (WIN_LABEL === "main") await drainPendingFiles();
   if (IS_TAURI) {
     try {
       const { listen } = await import("@tauri-apps/api/event");
-      await listen("pending-files", () => void drainPendingFiles());
+      if (WIN_LABEL === "main") {
+        await listen("pending-files", () => void drainPendingFiles());
+      }
+    } catch {}
+  }
+
+  // 新窗口是拖出来的：把交接过来的那个标签接住
+  if (IS_TAURI && WIN_LABEL !== "main") {
+    try {
+      const raw = await takeHandoff(WIN_LABEL);
+      if (raw) await acceptTab(JSON.parse(raw) as TabPayload);
     } catch {}
   }
 
@@ -2689,7 +2876,7 @@ async function boot() {
   // 把 .md 拖到 exe / 快捷方式图标上启动时，直接打开那个文件
   // 必须 await：否则文件还在读，下面的 syncWelcome 会以为一个标签都没有，
   // 于是把欢迎页盖在刚打开的文件上面（双击 .md 打不开就是这个原因）
-  if (IS_TAURI) {
+  if (IS_TAURI && WIN_LABEL === "main") {
     try {
       for (const f of await startupFiles()) await openPath(f);
     } catch {}
@@ -2794,10 +2981,12 @@ async function boot() {
     } catch {}
   }
 
-  // 按设置决定：不保留 / 询问后打开 / 直接打开
-  try {
-    await maybeRestoreSession();
-  } catch {}
+  // 按设置决定：不保留 / 询问后打开 / 直接打开。只在主窗口做，否则每个新窗口都会恢复一遍
+  if (WIN_LABEL === "main") {
+    try {
+      await maybeRestoreSession();
+    } catch {}
+  }
 
   // 欢迎页：按当前是否已有标签决定，避免把刚打开的文件盖住
   syncWelcome();
