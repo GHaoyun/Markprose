@@ -1,5 +1,57 @@
 # 更新日志 / Changelog
 
+## 1.1.3 — 2026-11-15
+
+### 中文
+
+**新增**
+
+- 标签可以拖动。拖到另一个窗口就合并过去；拖到所有窗口外面，会在松手的位置拆出一个新窗口。
+- 同时打开两个文件时自动并进同一个窗口，不再各开一个窗口。
+- 设置里新增三个开关：启动动画、拖动标签、拖出新建窗口。
+
+**改进**
+
+- 正文左右留白从 44px 加到 60px，不再紧贴侧边栏；窗口窄于 900px 时用 36px，避免正文被挤窄。
+- 引用条从 3px 加粗到 4px。引用文字和正文左边界对齐，竖条挂在正文左侧外面。
+- 设置里的说明文字重写了一遍，去掉实现细节，改成给用户看的话。
+- 未保存的草稿恢复后保留原来的标签名。
+- 屏蔽了 WebView2 自带的刷新、打印、开发者工具快捷键。
+
+**修复**
+
+- 分割线下面多出一行空白。原因是分割线所在行被行内 widget 撑到 84px，现在压到 25px，上下间距一致。
+- 同时双击两个文件只打开一个。第二个进程转交的文件改成先存队列，等窗口准备好再取。
+- 上次没有标签，重开却还问要不要恢复。关窗时没有立即写盘，现在关窗前会先落盘。
+- 「启动动画」开关打开后不生效。动画原来挂在会话恢复流程里，没有上次内容就永远走不到，现在独立判断。
+- 关闭软件后，上次打开的标签和光标位置丢失。
+
+### English
+
+**New**
+
+- Tabs can be dragged. Drop one on another window to merge it there; drop it outside every window and it tears off into a new window at the cursor.
+- Opening two files at once now merges them into one window instead of starting two.
+- Three new switches in Settings: boot animation, tab dragging, tear-off to new window.
+
+**Improved**
+
+- Body text now has 60px of side padding instead of 44px, so it no longer sits against the sidebar. Narrow windows (under 900px) use 36px.
+- The quote bar is 4px instead of 3px. Quote text lines up with body text while the bar hangs to the left of it.
+- Rewrote every settings description as plain user-facing copy.
+- Restored drafts keep their original tab name.
+- Disabled WebView2's reload, print and devtools shortcuts.
+
+**Fixed**
+
+- Horizontal rules left an extra blank line below them. The row was being stretched to 84px by the inline widget; it is now 25px with even spacing above and below.
+- Opening two files at once only opened one. Files forwarded by the second process are now queued and picked up once the window is ready.
+- A restore prompt appeared even when nothing was open last time. The session was not flushed before the window closed.
+- The boot animation switch had no effect. The animation lived inside the restore flow, which returns early when there is nothing to restore.
+- Tabs and cursor positions were lost after closing the app.
+
+---
+
 ## 1.1.2 — 2026-11-04
 
 ### 中文
