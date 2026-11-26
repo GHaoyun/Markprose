@@ -311,6 +311,14 @@ function moveTabToIndex(id: string, index: number) {
   saveSession();
 }
 
+/** Ctrl+Tab / Ctrl+Shift+Tab：在标签之间循环切换 */
+function cycleTab(dir: 1 | -1) {
+  if (app.tabs.length < 2) return;
+  const i = app.tabs.findIndex((t) => t.id === app.activeId);
+  const next = app.tabs[(i + dir + app.tabs.length) % app.tabs.length];
+  activate(next.id);
+}
+
 function renderTabs() {
   const host = $("#tabs");
   host.innerHTML = "";
@@ -825,7 +833,11 @@ function refreshStatus(u?: ViewUpdate) {
   const doc = view.state.doc;
   const t = activeTab();
   const words = t ? wordsOf(t, u) : 0;
-  $("#st-words").textContent = `${words} 字`;
+  const sel = view.state.selection.main;
+  // 有选区时显示所选内容的字数（Typora / iA Writer 的做法），没有就显示整篇
+  $("#st-words").textContent = sel.empty
+    ? `${words} 字`
+    : `已选 ${countWords(view.state.sliceDoc(sel.from, sel.to))} 字`;
   $("#st-lines").textContent = `${doc.lines} 行`;
   $("#st-read").textContent = `${Math.max(1, Math.round(words / 400))} 分钟`;
   const head = view.state.selection.main.head;
@@ -1891,6 +1903,10 @@ function bindShortcuts() {
         case "t":
           e.preventDefault();
           insertSnippet(view, TABLE_SNIPPET);
+          break;
+        case "tab":
+          e.preventDefault();
+          cycleTab(e.shiftKey ? -1 : 1);
           break;
         case "m":
           if (e.shiftKey) {
