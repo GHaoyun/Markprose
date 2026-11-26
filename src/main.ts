@@ -7,8 +7,8 @@ import "./styles/v2.css";
 import "./styles/table-panel.css";
 import "katex/dist/katex.min.css";
 
-import { EditorState } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
+import { EditorState, type ChangeSet, type Text } from "@codemirror/state";
+import { EditorView, type ViewUpdate } from "@codemirror/view";
 import { openSearchPanel } from "@codemirror/search";
 import { moveLineDown, moveLineUp, redo, undo } from "@codemirror/commands";
 import { syntaxTree } from "@codemirror/language";
@@ -102,6 +102,9 @@ interface Tab {
   scrollTop: number;
   /** 未命名标签的显示名，恢复草稿时保持不变 */
   label?: string;
+  /** 状态栏的字数缓存；wordsDoc 是算出它时的那份文档（文档对象不可变，按引用比较） */
+  words: number;
+  wordsDoc: Text | null;
 }
 
 const app = {
@@ -131,7 +134,9 @@ function mountEditor() {
       scheduleAutosave();
       refreshTabDirty();
     }
-    refreshStatus();
+    // 状态栏只跟正文和光标有关。后台语法解析、视口变化引起的更新不改这两样；
+    // 以前每次更新都整篇重算字数，大文档下一次要卡住几十毫秒
+    if (u.docChanged || u.selectionSet) refreshStatus(u);
     if (u.docChanged) scheduleOutline();
     scheduleBubble();
     if (u.selectionSet || u.docChanged) scheduleToolbarSync();
@@ -421,6 +426,8 @@ function newTab(content = "", path: string | null = null, label?: string) {
     savedAt: Date.now(),
     savedText: content,
     scrollTop: 0,
+    words: 0,
+    wordsDoc: null,
   };
   app.tabs.push(t);
   app.activeId = t.id;
@@ -744,17 +751,46 @@ function updateTitlebar() {
   document.title = `${name} — Markprose`;
 }
 
-function refreshStatus() {
+/** 文档只改了几行时，字数不必整篇重算：只算改动涉及的那几行的前后差值 */
+function wordsDelta(oldDoc: Text, changes: ChangeSet): number {
+  let delta = 0;
+  changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+    // 取整行再比：英文单词不会跨行，按整行算出来的差值是精确的
+    const a = oldDoc.lineAt(Math.max(0, fromA - 1));
+    const b = oldDoc.lineAt(Math.min(oldDoc.length, toA + 1));
+    const before = oldDoc.sliceString(a.from, b.to);
+    // 这几行里没被改动的首尾也拼回去，两边比的才是同样的整行
+    const after =
+      oldDoc.sliceString(a.from, fromA) + inserted.toString() + oldDoc.sliceString(toA, b.to);
+    delta += countWords(after) - countWords(before);
+  });
+  return delta;
+}
+
+/**
+ * 当前标签的字数。同一份文档直接用缓存；只是改了几行就算差值；
+ * 第一次遇到这份文档（新开、切换标签）才整篇算一次。
+ */
+function wordsOf(t: Tab, u?: ViewUpdate): number {
   const doc = view.state.doc;
-  const text = doc.toString();
-  const words = countWords(text);
+  if (t.wordsDoc === doc) return t.words;
+  if (u && u.docChanged && t.wordsDoc === u.startState.doc)
+    t.words += wordsDelta(u.startState.doc, u.changes);
+  else t.words = countWords(doc.toString());
+  t.wordsDoc = doc;
+  return t.words;
+}
+
+function refreshStatus(u?: ViewUpdate) {
+  const doc = view.state.doc;
+  const t = activeTab();
+  const words = t ? wordsOf(t, u) : 0;
   $("#st-words").textContent = `${words} 字`;
   $("#st-lines").textContent = `${doc.lines} 行`;
   $("#st-read").textContent = `${Math.max(1, Math.round(words / 400))} 分钟`;
   const head = view.state.selection.main.head;
   const line = doc.lineAt(head);
   $("#st-cursor").textContent = `行 ${line.number}, 列 ${head - line.from + 1}`;
-  const t = activeTab();
   $("#st-file").textContent = t?.path ? norm(t.path) : t ? "未命名文档" : "就绪";
   $("#st-mode").textContent = settings.sourceMode ? "源码" : "实时预览";
 }
