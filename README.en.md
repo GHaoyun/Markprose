@@ -28,7 +28,7 @@ Open it and start typing. Formatting marks stay hidden until you move the cursor
 - Multiple tabs, file tree, outline, full-text search
 - Tabs can be dragged. Drop one on another window to merge it there; drop it outside every window and it tears off into a new one at the cursor. Both can be switched off in Settings
 - Double-clicking another `.md` file while the app is running adds it to the existing window instead of opening a second one
-- Focus mode, typewriter mode, line numbers, zoom
+- Focus mode, typewriter mode, line numbers, zoom; selection word count in the status bar, `Ctrl+Tab` / `Ctrl+Shift+Tab` tab cycling, an outline that follows scrolling, and recent files in the File menu
 - Paste or drag images straight into the document
 - Export to HTML, print to PDF
 - Asks before closing a tab or the window with unsaved changes
