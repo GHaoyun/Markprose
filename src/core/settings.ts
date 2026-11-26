@@ -6,8 +6,8 @@ export interface Settings {
   fontSize: number;
   lineHeight: number;
   contentWidth: number;
-  /** 正文宽度跟随窗口（留出两侧边距，最宽 1100px）；关掉后用固定的 contentWidth */
-  contentWidthFollows: boolean;
+  /** 编辑区域：集中 = 固定宽度居中（像一页纸）；分散 = 铺满整个编辑区 */
+  editorArea: "center" | "spread";
   font: "sans" | "serif" | "kai";
   fontFamily: string;
   saveDir: string;
@@ -38,7 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fontSize: 16.5,
   lineHeight: 1.78,
   contentWidth: 760,
-  contentWidthFollows: true,
+  editorArea: "spread",
   font: "sans",
   fontFamily: "",
   saveDir: "",
@@ -117,13 +117,10 @@ export function applySettings() {
   else html.style.removeProperty("--font-text");
   html.style.setProperty("--editor-size", `${settings.fontSize}px`);
   html.style.setProperty("--editor-lh", String(settings.lineHeight));
-  // 跟随窗口时给一个「随宽度变宽、有上限」的列宽（100% 解析为滚动区域的宽度），
-  // 否则窗口越宽两侧的空白越大
+  // 编辑区域：集中用固定宽度居中，分散把正文铺满整个编辑区（100% 解析为滚动区域的宽度）
   html.style.setProperty(
     "--content-w",
-    settings.contentWidthFollows
-      ? `max(${settings.contentWidth}px, min(100% - 144px, 1100px))`
-      : `${settings.contentWidth}px`
+    settings.editorArea === "spread" ? "100%" : `${settings.contentWidth}px`
   );
   document.getElementById("sidebar")?.classList.toggle("hidden", !settings.sidebar);
   document.getElementById("btn-sidebar")?.classList.toggle("on", settings.sidebar);

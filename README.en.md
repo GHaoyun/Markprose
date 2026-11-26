@@ -34,7 +34,7 @@ Open it and start typing. Formatting marks stay hidden until you move the cursor
 - Asks before closing a tab or the window with unsaved changes
 - Tabs left open last time can be restored, together with each tab's cursor and scroll position. Unsaved documents are kept as well. Three modes in Settings: off, ask every time, reopen automatically
 - Optional boot animation, off by default
-- Adjustable font size, line height and typeface; the text column can follow the window or be fixed-width
+- Adjustable font size, line height, content width and typeface; the editing area can be centered like a page or fill the whole window
 - Can register itself as the default handler for `.md`
 
 ## Supported syntax

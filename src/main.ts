@@ -1209,38 +1209,53 @@ function openSettings() {
 
   slider("正文字号", "文字大小", "fontSize", 13, 24, 0.5, (v) => v + "px");
   slider("行高", "行与行之间的距离", "lineHeight", 1.4, 2.4, 0.02, (v) => v.toFixed(2));
-  const contentRow = slider("内容宽度", "正文一行的宽度", "contentWidth", 560, 1100, 10, (v) => v + "px");
-  // 跟随窗口开着时，上面的固定宽度不起作用，置灰提示
-  if (settings.contentWidthFollows) {
-    contentRow.style.opacity = "0.55";
-    const widthInput = contentRow.querySelector("input");
-    if (widthInput) widthInput.disabled = true;
-  }
-  const followRow = h("div", { class: "set-row" });
-  followRow.appendChild(
+  // 编辑区域：集中（居中一页纸）还是分散（铺满整个编辑区）
+  const areaRow = h("div", {
+    class: "set-row",
+    style: { flexDirection: "column", alignItems: "stretch", gap: "9px" },
+  });
+  areaRow.appendChild(
     h(
       "div",
       { class: "set-label" },
-      h("div", { class: "t", text: "宽度跟随窗口" }),
-      h("div", { class: "d", text: "窗口变宽时正文也跟着变宽，最宽 1100px；关掉后用上面的固定宽度" })
+      h("div", { class: "t", text: "编辑区域" }),
+      h("div", { class: "d", text: "正文在窗口里的铺排方式" })
     )
   );
-  followRow.appendChild(
-    h(
-      "div",
-      { class: "set-ctl" },
-      h("div", {
-        class: "switch" + (settings.contentWidthFollows ? " on" : ""),
+  const areaSeg = h("div", { class: "seg" });
+  for (const [v, label] of [
+    ["center", "集中"],
+    ["spread", "分散"],
+  ] as const) {
+    areaSeg.appendChild(
+      h("button", {
+        class: "seg-btn" + (settings.editorArea === v ? " on" : ""),
+        "data-v": v,
+        text: label,
         onclick: () => {
-          settings.contentWidthFollows = !settings.contentWidthFollows;
+          settings.editorArea = v;
           applySettings();
           void flushSettings();
           openSettings();
         },
       })
-    )
+    );
+  }
+  areaRow.appendChild(h("div", { class: "set-ctl" }, areaSeg));
+  areaRow.appendChild(
+    h("div", {
+      class: "d",
+      text: "集中：正文居中显示，像一页纸，两侧留白；分散：正文占满整个编辑区",
+    })
   );
-  body.appendChild(followRow);
+  body.appendChild(areaRow);
+  const contentRow = slider("内容宽度", "正文一行的宽度", "contentWidth", 560, 1100, 10, (v) => v + "px");
+  // 分散模式下固定宽度不起作用，置灰提示
+  if (settings.editorArea !== "center") {
+    contentRow.style.opacity = "0.55";
+    const widthInput = contentRow.querySelector("input");
+    if (widthInput) widthInput.disabled = true;
+  }
 
   const fontRow = h("div", {
     class: "set-row",
