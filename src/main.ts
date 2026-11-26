@@ -1,3 +1,5 @@
+declare const __APP_VERSION__: string;
+
 import "./styles/tokens.css";
 import "./styles/chrome.css";
 import "./styles/editor.css";
@@ -1582,7 +1584,7 @@ function openSettings() {
   info.appendChild(
     h("div", { class: "set-label" },
       h("div", { class: "t", text: "关于Markprose" }),
-      h("div", { class: "d", text: "v1.1.0" })
+      h("div", { class: "d", text: "v" + __APP_VERSION__ })
     )
   );
   body.appendChild(info);
@@ -2839,7 +2841,7 @@ function menuDefs(): MMenu[] {
           },
         },
         { sep: true },
-        { label: "关于 Markprose", icon: "info", run: () => void alertBox({ title: "关于 Markprose", message: "v1.1.0" }) },
+        { label: "关于 Markprose", icon: "info", run: () => void alertBox({ title: "关于 Markprose", message: "v" + __APP_VERSION__ }) },
       ],
     },
   ];
