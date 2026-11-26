@@ -148,7 +148,14 @@ function mountEditor() {
     scheduleSessionSave();
   };
   view.dom.addEventListener("dragover", (e) => e.preventDefault());
-  view.scrollDOM.addEventListener("scroll", () => scheduleSessionSave(), { passive: true });
+  view.scrollDOM.addEventListener(
+    "scroll",
+    () => {
+      scheduleSessionSave();
+      scheduleOutlineFollow();
+    },
+    { passive: true }
+  );
   editorHooks.onContextMenu = (x, y) => showEditorMenu(x, y);
   mathHooks.onEdit = (tex, block, from, to) => void editMathAt(tex, block, from, to);
 }
@@ -496,6 +503,15 @@ function newTab(content = "", path: string | null = null, label?: string) {
   return t;
 }
 
+/** 记住最近打开的文件（文件菜单用，最多 10 条，去重，最新在前） */
+function pushRecent(path: string) {
+  const p = norm(path);
+  const list = (settings.recentFiles || []).filter((f) => norm(f) !== p);
+  list.unshift(p);
+  settings.recentFiles = list.slice(0, 10);
+  persistSettings();
+}
+
 async function openPath(path: string, silent = false) {
   const exist = app.tabs.find((t) => t.path && norm(t.path) === norm(path));
   if (exist) return activate(exist.id);
@@ -503,6 +519,7 @@ async function openPath(path: string, silent = false) {
     const r = await readText(path);
     const t = newTab(r.content, path);
     t.savedAt = r.mtime;
+    pushRecent(path);
     if (!silent) {
       toast(`已打开 ${basename(path)}`);
       // 打开文件后自动切到设置里指定的侧栏
@@ -770,6 +787,7 @@ async function saveTab(saveAs = false, silent = false) {
     t.dirty = false;
     t.savedAt = r.mtime;
     t.savedText = content;
+    pushRecent(path);
     docCtx.path = path;
     docCtx.dir = dirname(path);
     renderTabs();
@@ -897,6 +915,36 @@ function syncOutlineHighlight() {
     if (pos <= head) best = i;
   });
   items.forEach((el, i) => el.classList.toggle("current", i === best));
+}
+
+let outlineFollowTimer: number | undefined;
+
+/** 滚动时让大纲高亮跟随视口所在的章节（Obsidian / Typora 的大纲行为） */
+function scheduleOutlineFollow() {
+  if (outlineFollowTimer) clearTimeout(outlineFollowTimer);
+  outlineFollowTimer = window.setTimeout(() => {
+    try {
+      if (!app.tabs.length || !$$(".ol-item").length) return;
+      // 不能用 visibleRanges：滚动是平滑动画，它的值会滞后几百像素。
+      // 这里直接从实时 DOM 找第一个可见的行，再用 posAtDOM 映射回文档位置
+      const scTop = view.scrollDOM.getBoundingClientRect().top;
+      let pos: number | null = null;
+      for (const l of document.querySelectorAll(".cm-content .cm-line")) {
+        if (l.getBoundingClientRect().bottom > scTop + 2) {
+          pos = view.posAtDOM(l, 0);
+          break;
+        }
+      }
+      if (pos == null) return;
+      const items = $$(".ol-item");
+      let best = -1;
+      items.forEach((el, i) => {
+        const p = parseInt((el as any).dataset.pos || "0", 10);
+        if (p <= pos) best = i;
+      });
+      items.forEach((el, i) => el.classList.toggle("current", i === best));
+    } catch {}
+  }, 120);
 }
 
 /* ================= 文件树 ================= */
@@ -2468,6 +2516,8 @@ function showEditorMenu(x: number, y: number) {
 
 /* ================= 菜单栏 ================= */interface MItem {
   label?: string;
+  /** 悬停提示（最近打开的文件用它显示完整路径） */
+  title?: string;
   key?: string;
   sep?: boolean;
   checked?: () => boolean;
@@ -2592,6 +2642,7 @@ function showMenuBar(btn: HTMLElement, menu: MMenu) {
     }
     row.appendChild(slot);
     row.appendChild(h("span", { class: "mb-label", text: it.label || "" }));
+    if (it.title) row.title = it.title;
     if (it.key) row.appendChild(h("span", { class: "mb-key", text: it.key }));
     panel.appendChild(row);
   }
@@ -2734,6 +2785,18 @@ function resetZoom() {
   persistSettings();
 }
 
+/** 「文件」菜单里的最近打开（最多 6 条，最新在前） */
+function recentMenuItems(): MItem[] {
+  return (settings.recentFiles || [])
+    .slice(0, 6)
+    .map((p) => ({
+      label: basename(p),
+      title: p,
+      icon: "doc" as const,
+      run: () => void openPath(p),
+    }));
+}
+
 function menuDefs(): MMenu[] {
   const F = (cmd: string, arg?: any) => () => execToolbar(cmd, arg);
   return [
@@ -2743,6 +2806,7 @@ function menuDefs(): MMenu[] {
         { label: "新建", key: "Ctrl+N", icon: "new", run: () => newTab() },
         { label: "打开文件…", key: "Ctrl+O", icon: "page", run: () => void openFileDialog() },
         { label: "打开文件夹…", key: "Ctrl+Shift+O", icon: "folderOpen", run: () => void openFolderDialog() },
+        ...(settings.recentFiles || []).length ? recentMenuItems() : [],
         { sep: true },
         { label: "保存", key: "Ctrl+S", icon: "save", run: () => void saveTab() },
         { label: "另存为…", key: "Ctrl+Shift+S", icon: "saveAs", run: () => void saveTab(true) },

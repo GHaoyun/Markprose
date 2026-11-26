@@ -22,6 +22,8 @@ export interface Settings {
   sourceMode: boolean;
   sidebar: boolean;
   lastFolder: string | null;
+  /** 最近打开的文件（文件菜单用，最多 10 条，最新在前） */
+  recentFiles: string[];
   sessionTabs: string[];
   sessionActive: string | null;
   sessionState: Record<string, { anchor: number; head: number; scrollTop: number }>;
@@ -51,6 +53,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sourceMode: false,
   sidebar: true,
   lastFolder: null,
+  recentFiles: [],
   sessionTabs: [],
   sessionActive: null,
   sessionState: {},
