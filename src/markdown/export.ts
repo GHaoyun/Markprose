@@ -450,7 +450,11 @@ const CSS = `
 body{margin:0;background:var(--bg);color:var(--fg);
  font:16px/1.78 "Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
  -webkit-font-smoothing:antialiased}
-.page{max-width:760px;margin:0 auto;padding:64px 32px 120px}
+.page{max-width:760px;margin:0 auto;padding:64px 60px 120px}
+/* 窄屏（和编辑器一致）：正文左右留白收到 36px */
+@media (max-width:900px){
+ .page{padding-left:36px;padding-right:36px}
+}
 h1,h2,h3,h4,h5,h6{font-weight:650;line-height:1.35;letter-spacing:-.012em;margin:1.5em 0 .6em}
 h1{font-size:1.92em;margin-top:.6em}
 h2{font-size:1.5em;border-bottom:1px solid var(--line);padding-bottom:.24em}
@@ -470,7 +474,7 @@ pre.code{background:var(--code);border:1px solid #e8e2d5;border-radius:10px;padd
 pre.code code{background:none;border:none;padding:0;color:#2c2720}
 pre.mermaid-src{background:#f7f4ee;border:1px dashed var(--line);border-radius:10px;padding:14px 18px;
  font-size:.82em;color:var(--dim);white-space:pre-wrap}
-blockquote{margin:1em 0;padding:.1em 0 .1em 18px;border-left:3px solid #d9c9b4;color:var(--dim)}
+blockquote{margin:1em 0 1em -16px;padding:.1em 0 .1em 12px;border-left:4px solid #d9c9b4;color:var(--dim)}
 ul,ol{padding-left:1.6em;margin:.8em 0}
 li{margin:.28em 0}
 ul.tasks{padding-left:.2em}
