@@ -300,6 +300,17 @@ async function handleTabDrop(d: NonNullable<typeof dragTab>, sx: number, sy: num
   } catch {}
 }
 
+/** 同窗口内拖动排序：把标签移到原数组的第 index 个位置（已按"被拖走的先取出"折算） */
+function moveTabToIndex(id: string, index: number) {
+  const from = app.tabs.findIndex((t) => t.id === id);
+  if (from < 0) return;
+  const [tab] = app.tabs.splice(from, 1);
+  const to = Math.max(0, Math.min(app.tabs.length, index > from ? index - 1 : index));
+  app.tabs.splice(to, 0, tab);
+  renderTabs();
+  saveSession();
+}
+
 function renderTabs() {
   const host = $("#tabs");
   host.innerHTML = "";
@@ -328,6 +339,31 @@ function renderTabs() {
           if (!d) return;
           // 拖动距离太小当点击处理
           if (Math.abs(e.screenX - d.startX) < 12 && Math.abs(e.screenY - d.startY) < 12) return;
+
+          // 松手落在标签栏里：同窗口内排序（clientX 是视口坐标，别用 screenX）
+          const tabsEl = document.getElementById("tabs");
+          const tr = tabsEl?.getBoundingClientRect();
+          if (
+            tabsEl &&
+            tr &&
+            e.clientX >= tr.left &&
+            e.clientX <= tr.right &&
+            e.clientY >= tr.top &&
+            e.clientY <= tr.bottom
+          ) {
+            const els = Array.from(tabsEl.querySelectorAll(".tab"));
+            let idx = els.length;
+            for (let i = 0; i < els.length; i++) {
+              const r = els[i].getBoundingClientRect();
+              if (e.clientX < r.left + r.width / 2) {
+                idx = i;
+                break;
+              }
+            }
+            moveTabToIndex(d.id, idx);
+            return;
+          }
+
           void handleTabDrop(d, e.screenX, e.screenY);
         },
         onmousedown: (e: MouseEvent) => {
