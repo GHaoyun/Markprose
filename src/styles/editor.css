@@ -18,7 +18,9 @@
 }
 .cm-content {
   max-width: var(--content-w);
-  margin: 0 auto;
+  /* CodeMirror 基础主题里的 .cm-content{margin:0} 带着作用域前缀类，优先级比这条高。
+     不加 !important 居中不生效：正文会贴在编辑区左边，右边空出一大块 */
+  margin: 0 auto !important;
   /* CodeMirror 自带 .cm-content{padding:4px 0} 会覆盖这条，必须 !important 才生效 */
   padding: 4px 60px !important;
   box-sizing: border-box;
