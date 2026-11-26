@@ -1,5 +1,47 @@
 # 更新日志 / Changelog
 
+## 1.1.4 — 2026-11-26
+
+### 中文
+
+**新增**
+
+- 设置里新增「编辑区域」：集中（正文居中，像一页纸，两侧留白）或分散（正文占满整个编辑区），默认分散
+- 标签栏宽度自适应：单个标签贴合文件名，标签多时先压缩到最小宽度，还放不下才横向滚动
+- 设置里「文档存放位置」的「重置」会先弹确认框
+
+**改进**
+
+- 大文件的输入延迟大幅下降：2MB 文档每个按键从约 114ms 降到约 52ms（不再每次更新都全量重算字数和装饰）
+- 导出的 HTML 与编辑器排版同步：正文左右留白 60px（窄屏 36px）、引用条 4px、引用文字与正文左对齐
+- README 补充了 1.1.1–1.1.3 的新功能说明
+
+**修复**
+
+- 正文列没有居中：CodeMirror 的主题样式覆盖了居中规则，正文一直贴着侧边栏显示
+- 打字机模式下拖选文字时整篇内容上下跳动（现在只在输入时跟随光标）
+
+### English
+
+**New**
+
+- New 编辑区域 (editing area) setting: 集中 (centered, paper-like column) or 分散 (text fills the whole editor area), 分散 by default
+- Tabs size to their file names: a single tab hugs its name, many tabs shrink to a minimum before the row scrolls
+- Resetting the documents folder in Settings now asks for confirmation
+
+**Improved**
+
+- Much lower typing latency in big documents: per-keystroke latency in a 2MB file dropped from ~114ms to ~52ms (no more full-document recount and rescan on every update)
+- Exported HTML matches the editor's layout: 60px body padding (36px on narrow screens), 4px quote bar, quote text aligned with body text
+- README now covers the features added in 1.1.1–1.1.3
+
+**Fixed**
+
+- The text column was never centered (CodeMirror's theme overrode the centering rule, so text sat against the sidebar)
+- With typewriter mode on, dragging to select text made the whole document jump (it now only follows the caret while typing)
+
+---
+
 ## 1.1.3 — 2026-11-15
 
 ### 中文
