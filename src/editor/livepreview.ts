@@ -1,4 +1,10 @@
-import { EditorState, Range, StateEffect, StateField } from "@codemirror/state";
+import {
+  EditorState,
+  Range,
+  StateEffect,
+  StateField,
+  type EditorSelection,
+} from "@codemirror/state";
 import {
   Decoration,
   DecorationSet,
@@ -351,21 +357,24 @@ class CodeLangWidget extends WidgetType {
 
 class TableWidget extends WidgetType {
   constructor(
-    readonly html: string,
+    /** 表格的 Markdown 源码，只用来判断两个 widget 是不是同一张表 */
+    readonly src: string,
     readonly model: TableModel,
     readonly from: number
   ) {
     super();
   }
   eq(o: TableWidget) {
-    return o.html === this.html;
+    return o.src === this.src;
   }
   toDOM(view: EditorView) {
     const block = document.createElement("div");
     block.className = "cm-table-block";
     const wrap = document.createElement("div");
     wrap.className = "cm-table-wrap";
-    wrap.innerHTML = this.html;
+    // HTML 到这里才生成。scanDoc 每次重扫都会给全文每张表建一个 widget，
+    // 在构造的时候就算好的话，屏幕外的表也要跟着白算一遍
+    wrap.innerHTML = tableHtml(this.model);
 
     const tools = document.createElement("div");
     tools.className = "cm-table-tools";
@@ -640,11 +649,14 @@ function splitImgSrc(raw: string): string {
    （CodeMirror 6：block 装饰不能来自 ViewPlugin，行装饰也属 block 类）
    ============================================================ */
 
+/** 光标一进去就露出源码、离开又恢复排版结果的整块 */
+type BlockKind = "table" | "math" | "mermaid" | "toc";
+
 interface BlockState {
   decos: DecorationSet;
   ranges: Span[];
   codeRanges: Span[];
-  blocks: { from: number; to: number; kind: "table" | "math" | "mermaid" }[];
+  blocks: { from: number; to: number; kind: BlockKind }[];
 }
 
 const lineDeco = (cls: string, pos: number) => Decoration.line({ class: cls }).range(pos);
@@ -654,7 +666,7 @@ function scanDoc(state: EditorState): BlockState {
   const decos: Range<Decoration>[] = [];
   const ranges: Span[] = [];
   const codeRanges: Span[] = [];
-  const blocks: { from: number; to: number; kind: "table" | "math" | "mermaid" }[] = [];
+  const blocks: { from: number; to: number; kind: BlockKind }[] = [];
   const empty: BlockState = { decos: Decoration.none, ranges, codeRanges, blocks };
   if (doc.lines > 30000) return empty;
 
@@ -789,7 +801,7 @@ function scanDoc(state: EditorState): BlockState {
           ranges.push([line.from, endLine.to]);
           decos.push(
             Decoration.replace({
-              widget: new TableWidget(tableHtml(model), model, line.from),
+              widget: new TableWidget(lines.join("\n"), model, line.from),
               block: true,
             }).range(line.from, endLine.to)
           );
@@ -801,6 +813,7 @@ function scanDoc(state: EditorState): BlockState {
 
     /* --- [TOC] 目录 --- */
     if (/^\[toc\]$/i.test(t)) {
+      blocks.push({ from: line.from, to: line.to, kind: "toc" });
       if (!touching(line.from, line.to)) {
         const items: { level: number; text: string; pos: number }[] = [];
         for (let k = 1; k <= doc.lines; k++) {
@@ -918,12 +931,36 @@ function scanDoc(state: EditorState): BlockState {
   return { decos: set, ranges, codeRanges, blocks };
 }
 
+/** 光标落在了哪些整块里（序号列表） */
+function touchedBlocks(blocks: BlockState["blocks"], sel: EditorSelection): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (sel.ranges.some((r) => r.from <= b.to && r.to >= b.from)) out.push(i);
+  }
+  return out;
+}
+
+function sameBlocks(a: number[], b: number[]) {
+  return a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
 const blockField = StateField.define<BlockState>({
   create: (state) => scanDoc(state),
-  update: (val, tr) =>
-    tr.docChanged || tr.selection || tr.effects.some((e) => e.is(refreshEffect))
-      ? scanDoc(tr.state)
-      : val,
+  update: (val, tr) => {
+    if (tr.docChanged || tr.effects.some((e) => e.is(refreshEffect))) return scanDoc(tr.state);
+    if (!tr.selection) return val;
+    // 只是光标动了：光标进出的整块没有变化，装饰就不会变，不必把全文重扫一遍。
+    // scanDoc 里跟光标有关的只有「光标在不在表格 / 公式 / 流程图 / 目录块里」
+    if (
+      sameBlocks(
+        touchedBlocks(val.blocks, tr.startState.selection),
+        touchedBlocks(val.blocks, tr.state.selection)
+      )
+    )
+      return val;
+    return scanDoc(tr.state);
+  },
   provide: (f) => EditorView.decorations.from(f, (v) => v.decos),
 });
 
