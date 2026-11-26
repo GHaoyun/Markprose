@@ -2911,6 +2911,11 @@ function bindContextMenu() {
 /* ================= 启动 ================= */
 async function boot() {
   await loadSettings();
+  // 超大文档降级提示：装饰被关闭时由 livepreview 的扫描发出事件，这里弹一次提示
+  window.addEventListener("moke:big-doc", (e: Event) => {
+    const lines = (e as CustomEvent).detail as number;
+    toast(`文档有 ${lines} 行，表格和公式已改为源码显示，以保证输入流畅。`, "info", 6000);
+  });
   WIN_LABEL = await detectWindowLabel();
   // 启动动画只看自己的开关，跟会话模式、有没有上次内容都无关
   if (settings.bootAnimation) void playBootSplash();

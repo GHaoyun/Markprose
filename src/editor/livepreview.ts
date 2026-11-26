@@ -661,6 +661,9 @@ interface BlockState {
 
 const lineDeco = (cls: string, pos: number) => Decoration.line({ class: cls }).range(pos);
 
+/** 超大文档的降级提示只弹一次（模块级标记，切标签不重复弹） */
+let bigDocNotified = false;
+
 function scanDoc(state: EditorState): BlockState {
   const doc = state.doc;
   const decos: Range<Decoration>[] = [];
@@ -668,7 +671,14 @@ function scanDoc(state: EditorState): BlockState {
   const codeRanges: Span[] = [];
   const blocks: { from: number; to: number; kind: BlockKind }[] = [];
   const empty: BlockState = { decos: Decoration.none, ranges, codeRanges, blocks };
-  if (doc.lines > 30000) return empty;
+  if (doc.lines > 30000) {
+    // 超过上限就关闭所有装饰，这里只提示一次让用户知道发生了什么；上限本身不动
+    if (!bigDocNotified) {
+      bigDocNotified = true;
+      window.dispatchEvent(new CustomEvent("moke:big-doc", { detail: doc.lines }));
+    }
+    return empty;
+  }
 
   const sels = state.selection.ranges;
   const touching = (f: number, t: number) => sels.some((r) => r.from <= t && r.to >= f);
