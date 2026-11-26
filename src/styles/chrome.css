@@ -475,6 +475,9 @@ svg {
   position: relative;
 }
 #tabs {
+  /* 标签宽度的下限和上限：名字短的不窄于下限，名字长了到上限用省略号 */
+  --tab-min: 88px;
+  --tab-max: 200px;
   display: flex;
   align-items: stretch;
   gap: 1px;
@@ -517,14 +520,15 @@ svg {
   align-items: center;
   gap: 7px;
   padding: 0 8px 0 13px;
-  max-width: 200px;
-  min-width: 96px;
+  max-width: var(--tab-max);
+  min-width: var(--tab-min);
   font-size: 12.5px;
   color: var(--text-dim);
   border-right: 1px solid var(--border-soft);
   position: relative;
   cursor: pointer;
-  flex: none;
+  /* 宽度跟着文件名走。标签多到一行放不下时先一起压缩到下限，还放不下才横向滚动 */
+  flex: 0 1 auto;
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 .tab:hover {
@@ -549,6 +553,13 @@ svg {
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+  /* 上限加在文件名上（标签上限减去内边距、关闭按钮）：标签的实际宽度才等于它的基准宽度，
+     标签多的时候才能按比例一起压缩。只给标签设 max-width 的话，被截住的那个不会被压缩 */
+  max-width: calc(var(--tab-max) - 47px);
+}
+.tab.dirty .tname {
+  /* 多一个「未保存」圆点 */
+  max-width: calc(var(--tab-max) - 59px);
 }
 .tab .tdot {
   width: 5px;
