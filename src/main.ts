@@ -140,7 +140,9 @@ function mountEditor() {
     if (u.docChanged) scheduleOutline();
     scheduleBubble();
     if (u.selectionSet || u.docChanged) scheduleToolbarSync();
-    if (settings.typewriter && u.selectionSet) typewriter();
+    // 打字机模式只在输入时生效。挂在选区变化上（u.selectionSet）的话，鼠标拖选的
+    // 每一步都会把光标行强行滚到屏幕中间，整个正文会跟着上下跳动
+    if (settings.typewriter && u.docChanged) typewriter();
     scheduleSessionSave();
   };
   view.dom.addEventListener("dragover", (e) => e.preventDefault());
