@@ -26,10 +26,14 @@ Open it and start typing. Formatting marks stay hidden until you move the cursor
 - Tables get their own panel — add and remove rows and columns without typing pipes
 - Formulas open in a dialog with live preview; right-click one later to edit it again
 - Multiple tabs, file tree, outline, full-text search
+- Tabs can be dragged. Drop one on another window to merge it there; drop it outside every window and it tears off into a new one at the cursor. Both can be switched off in Settings
+- Double-clicking another `.md` file while the app is running adds it to the existing window instead of opening a second one
 - Focus mode, typewriter mode, line numbers, zoom
 - Paste or drag images straight into the document
 - Export to HTML, print to PDF
 - Asks before closing a tab or the window with unsaved changes
+- Tabs left open last time can be restored, together with each tab's cursor and scroll position. Unsaved documents are kept as well. Three modes in Settings: off, ask every time, reopen automatically
+- Optional boot animation, off by default
 - Adjustable font size, line height, content width and typeface
 - Can register itself as the default handler for `.md`
 
@@ -58,9 +62,9 @@ Open it and start typing. Formatting marks stay hidden until you move the cursor
 
 ## Installation
 
-Installer: run `Markprose_1.1.1_x64-setup.exe`. On first launch it asks where to keep your documents.
+Installer: run `Markprose_1.1.3_x64-setup.exe`. On first launch it asks where to keep your documents.
 
-Portable: run `Markprose-1.1.1-portable.exe` from any folder.
+Portable: run `Markprose-1.1.3-portable.exe` from any folder.
 
 ## Keyboard shortcuts
 
