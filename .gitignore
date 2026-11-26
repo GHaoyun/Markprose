@@ -16,3 +16,8 @@ Thumbs.db
 
 # 本地可执行文件（发布包走 Releases）
 *.exe
+
+# 本地回归 / 性能测试脚本与临时数据（用法见 _qa/README.md）
+_qa/
+_tools/
+_perf/
