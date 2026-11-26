@@ -1396,7 +1396,14 @@ function openSettings() {
       h("button", {
         class: "mini-btn",
         text: "重置",
-        onclick: () => {
+        onclick: async () => {
+          // 重置是立刻写盘的，先确认一次，免得误点把自定义位置清掉
+          const ok = await confirmBox({
+            title: "重置文档存放位置",
+            message: "把文档存放位置恢复成默认的「文档\\Markprose」？",
+            okText: "重置",
+          });
+          if (!ok) return;
           settings.saveDir = "";
           dirVal.textContent = "（默认：文档\\Markprose）";
           void flushSettings();
