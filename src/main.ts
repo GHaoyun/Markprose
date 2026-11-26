@@ -1204,11 +1204,43 @@ function openSettings() {
     });
     row.appendChild(h("div", { class: "set-ctl" }, inp, val));
     body.appendChild(row);
+    return row;
   };
 
   slider("正文字号", "文字大小", "fontSize", 13, 24, 0.5, (v) => v + "px");
   slider("行高", "行与行之间的距离", "lineHeight", 1.4, 2.4, 0.02, (v) => v.toFixed(2));
-  slider("内容宽度", "正文一行的宽度", "contentWidth", 560, 1100, 10, (v) => v + "px");
+  const contentRow = slider("内容宽度", "正文一行的宽度", "contentWidth", 560, 1100, 10, (v) => v + "px");
+  // 跟随窗口开着时，上面的固定宽度不起作用，置灰提示
+  if (settings.contentWidthFollows) {
+    contentRow.style.opacity = "0.55";
+    const widthInput = contentRow.querySelector("input");
+    if (widthInput) widthInput.disabled = true;
+  }
+  const followRow = h("div", { class: "set-row" });
+  followRow.appendChild(
+    h(
+      "div",
+      { class: "set-label" },
+      h("div", { class: "t", text: "宽度跟随窗口" }),
+      h("div", { class: "d", text: "窗口变宽时正文也跟着变宽，最宽 1100px；关掉后用上面的固定宽度" })
+    )
+  );
+  followRow.appendChild(
+    h(
+      "div",
+      { class: "set-ctl" },
+      h("div", {
+        class: "switch" + (settings.contentWidthFollows ? " on" : ""),
+        onclick: () => {
+          settings.contentWidthFollows = !settings.contentWidthFollows;
+          applySettings();
+          void flushSettings();
+          openSettings();
+        },
+      })
+    )
+  );
+  body.appendChild(followRow);
 
   const fontRow = h("div", {
     class: "set-row",
